@@ -64,7 +64,9 @@ public class FileListView extends ListView implements
 		} else {
 			selected_file = f;
 			// notify the container about the changes
-			listener.onFileSelected(selected_file);
+			// check for 'null' to be failsafe
+			if (listener != null)
+				listener.onFileSelected(selected_file);
 		}
 	}
 

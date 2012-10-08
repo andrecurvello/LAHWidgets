@@ -6,7 +6,6 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
-import android.os.Environment;
 import android.text.Layout;
 import android.view.View;
 import android.widget.AdapterView;
@@ -32,18 +31,17 @@ public class FileListView extends ListView implements
 
 	FileSelectListener listener;
 
-	public FileListView(Context context, FileSelectListener listener) {
+	public FileListView(Context context, FileSelectListener listener,
+			File initial_directory) {
 		super(context);
-		System.out.println("Construct a file view, initially bind to "
-				+ Environment.getExternalStorageDirectory().getPath());
+
 		adapter = new FileViewArrayAdapter(context, 0);
-		adapter.gotoDirectory(new File(Environment
-				.getExternalStorageDirectory().getPath()));
+		adapter.gotoDirectory(initial_directory);
 		setAdapter(adapter);
 		setOnItemClickListener(this);
-		selected_file = null;
+
+		selected_file = initial_directory;
 		this.listener = listener;
-		// fill(currentDir);
 	}
 
 	public File getSelectedFile() {
@@ -56,18 +54,17 @@ public class FileListView extends ListView implements
 
 	public void onItemClick(AdapterView<?> parent, View view, int position,
 			long id) {
-//		System.out.println("List item " + position + " click!");
 		File f = (File) parent.getAdapter().getItem(position);
-		if (f.isDirectory()) {
-//			System.out.println("Change to directory " + f.getAbsolutePath());
+
+		if (f.isDirectory())
 			adapter.gotoDirectory(f);
-		} else {
-			selected_file = f;
-			// notify the container about the changes
-			// check for 'null' to be failsafe
-			if (listener != null)
-				listener.onFileSelected(selected_file);
-		}
+
+		// We will notify the container of the currently chosen file/directory
+		selected_file = f;
+		// notify the container about the changes check for 'null' to be
+		// failsafe
+		if (listener != null)
+			listener.onFileSelected(selected_file);
 	}
 
 }

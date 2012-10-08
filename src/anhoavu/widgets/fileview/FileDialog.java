@@ -2,15 +2,13 @@ package anhoavu.widgets.fileview;
 
 import java.io.File;
 
-import android.app.Dialog;
+import android.app.AlertDialog;
 import android.content.Context;
-import android.view.View;
-import android.view.ViewGroup;
-import android.view.ViewGroup.LayoutParams;
-import android.widget.Button;
+import android.content.DialogInterface;
+import android.os.Environment;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ListView;
-import android.widget.TextView;
 
 /**
  * A reusable file/directory {@link ListView}.
@@ -22,84 +20,84 @@ import android.widget.TextView;
  * <li>[some time in the future] choose a local installation location.</li>
  * </ul>
  * 
+ * TODO privatize the original {@link AlertDialog} methods
+ * 
  * @author Vu An Hoa
  * 
  */
-public class FileDialog extends Dialog implements
-		android.view.View.OnClickListener, FileSelectListener {
+public class FileDialog extends AlertDialog implements FileSelectListener,
+		android.content.DialogInterface.OnClickListener {
 
+	/**
+	 * The current file selected
+	 */
 	private File result;
 
-	private View dialog_layout;
-
+	/**
+	 * The {@link FileListView} that list files in the current directory
+	 */
 	private FileListView file_browse;
 
-	private TextView current_selection;
+	/**
+	 * An {@link EditText}
+	 */
+	private EditText current_selection;
 
-	private Button select_button, cancel_button;
-
+	/**
+	 * The {@link FileSelectListener} to update when the user click on 'Select'
+	 * to select a file
+	 */
 	private FileSelectListener listener;
 
+	/**
+	 * Construct a dialog and register a listener who will get notified of the
+	 * selected file
+	 * 
+	 * @param context
+	 * @param listener
+	 */
 	public FileDialog(Context context, FileSelectListener listener) {
 		super(context);
-//		this.setContentView(R.layout.file_dialog);
-//		LinearLayout v = (LinearLayout) this.findViewById(R.id.file_view);
-//		v.addView(new FileListView(context, this));
-		initialize(context);
+
+		File initial_directory = new File(Environment
+				.getExternalStorageDirectory().getPath());
+
+		LinearLayout dialog_layout = new LinearLayout(context);
+		dialog_layout.setOrientation(LinearLayout.VERTICAL);
+
+		current_selection = new EditText(context);
+		current_selection.setTextSize(16);
+		current_selection.setText(initial_directory.getAbsolutePath());
+		current_selection.setFocusable(false);
+
+		file_browse = new FileListView(context, this, initial_directory);
+
+		dialog_layout.addView(current_selection);
+		dialog_layout.addView(file_browse);
+
+		setView(dialog_layout);
+		setButton(BUTTON_NEUTRAL, "Cancel", this);
+		setButton(BUTTON_POSITIVE, "Select", this);
+
 		this.listener = listener;
 	}
 
-	public void initialize(Context context) {
-		dialog_layout = new LinearLayout(context);
-		((LinearLayout) dialog_layout).setOrientation(LinearLayout.VERTICAL);
-
-		// Chosen item
-		current_selection = new TextView(context);
-
-		// List view for the directories
-		file_browse = new FileListView(context, this);
-		/*
-		 * http://stackoverflow.com/questions/6798867/android-how-to-
-		 * programmatically-set-the-size-of-a-layout
-		 */
-		LinearLayout.LayoutParams file_browse_layout_params = new LinearLayout.LayoutParams(
-				LayoutParams.WRAP_CONTENT, 400);
-		file_browse.setLayoutParams(file_browse_layout_params);
-
-		// The buttons
-		LinearLayout buttons_layout = new LinearLayout(context);
-		buttons_layout.setOrientation(LinearLayout.HORIZONTAL);
-
-		select_button = new Button(context);
-		select_button.setText("Select");
-		select_button.setOnClickListener(this);
-
-		cancel_button = new Button(context);
-		cancel_button.setText("Cancel");
-		cancel_button.setOnClickListener(this);
-
-		// Add items to the button group and the main dialog
-		buttons_layout.addView(cancel_button);
-		buttons_layout.addView(select_button);
-		((ViewGroup) dialog_layout).addView(current_selection);
-		((ViewGroup) dialog_layout).addView(file_browse);
-		((ViewGroup) dialog_layout).addView(buttons_layout);
-
-		// Set the content
-		setContentView(dialog_layout);
-		setTitle("Select TeX input file");
-	}
-
-	public void onClick(View v) {
-		if (v != select_button)
-			result = null;
-		// notify the listener
-		listener.onFileSelected(result);
-	}
-
+	/**
+	 * Process the update of current directory
+	 */
 	public void onFileSelected(File result) {
 		this.result = file_browse.getSelectedFile();
 		current_selection.setText(result.getAbsolutePath());
+	}
+
+	/**
+	 * Process when the user click a button ('Cancel' or 'Select')
+	 */
+	public void onClick(DialogInterface dialog, int which) {
+		if (which == BUTTON_NEUTRAL)
+			result = null;
+		else if (listener != null) // notify the listener
+			listener.onFileSelected(result);
 	}
 
 }

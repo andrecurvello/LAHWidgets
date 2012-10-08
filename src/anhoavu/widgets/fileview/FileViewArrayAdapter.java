@@ -3,6 +3,7 @@ package anhoavu.widgets.fileview;
 import java.io.File;
 
 import android.content.Context;
+import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Adapter;
@@ -41,10 +42,6 @@ class FileViewArrayAdapter extends ArrayAdapter<File> {
 		if (directory.canRead()) {
 			this.directory = directory;
 			files = directory.listFiles();
-			// System.out.println("Files in " + directory.getAbsolutePath() +
-			// ":");
-			// for (File f : files)
-			// System.out.println(f.getAbsolutePath());
 			notifyDataSetChanged();
 		}
 	}
@@ -71,18 +68,22 @@ class FileViewArrayAdapter extends ArrayAdapter<File> {
 		// http://docs.xamarin.com/android/tutorials/ListViews_and_Adapters
 		Context context = parent.getContext();
 		File f = getItem(position);
-		
+
 		LinearLayout layout = new LinearLayout(context);
-		
-		ImageView f_icon = new ImageView(context);		
-		f_icon.setImageResource(f.isDirectory() ? R.drawable.directory : R.drawable.generic_text);
-		
+
+		ImageView f_icon = new ImageView(context);
+		f_icon.setImageResource(f.isDirectory() ? R.drawable.directory
+				: R.drawable.generic_text);
+
 		TextView v = new TextView(context);
 		v.setText(f.getName());
-		
-		layout.addView(f_icon, LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+		v.setTextSize(20);
+		v.setGravity(Gravity.CENTER_VERTICAL);
+
+		layout.addView(f_icon, LayoutParams.WRAP_CONTENT,
+				LayoutParams.WRAP_CONTENT);
 		layout.addView(v, LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
-		
+
 		return layout;
 	}
 

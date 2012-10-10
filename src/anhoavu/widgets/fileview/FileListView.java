@@ -67,4 +67,8 @@ public class FileListView extends ListView implements
 			listener.onFileSelected(selected_file);
 	}
 
+	public void goUp() {
+		adapter.gotoParent();
+	}
+
 }

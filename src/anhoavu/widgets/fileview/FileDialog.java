@@ -31,7 +31,7 @@ public class FileDialog extends AlertDialog implements FileSelectListener,
 	/**
 	 * The current file selected
 	 */
-	private File result;
+	private File current_file_selected;
 
 	/**
 	 * The {@link FileListView} that list files in the current directory
@@ -58,35 +58,38 @@ public class FileDialog extends AlertDialog implements FileSelectListener,
 	 */
 	public FileDialog(Context context, FileSelectListener listener) {
 		super(context);
-
+		this.listener = listener;
+		initializeView();
+	}
+	
+	void initializeView() {
 		File initial_directory = new File(Environment
 				.getExternalStorageDirectory().getPath());
 
-		LinearLayout dialog_layout = new LinearLayout(context);
+		LinearLayout dialog_layout = new LinearLayout(getContext());
 		dialog_layout.setOrientation(LinearLayout.VERTICAL);
 
-		current_selection = new EditText(context);
+		current_selection = new EditText(getContext());
 		current_selection.setTextSize(16);
 		current_selection.setText(initial_directory.getAbsolutePath());
 		current_selection.setFocusable(false);
 
-		file_browse = new FileListView(context, this, initial_directory);
+		file_browse = new FileListView(getContext(), this, initial_directory);
 
 		dialog_layout.addView(current_selection);
 		dialog_layout.addView(file_browse);
 
 		setView(dialog_layout);
-		setButton(BUTTON_NEUTRAL, "Cancel", this);
+		setButton(BUTTON_NEGATIVE, "Cancel", this);
+		setButton(BUTTON_NEUTRAL, "Up", this);
 		setButton(BUTTON_POSITIVE, "Select", this);
-
-		this.listener = listener;
 	}
 
 	/**
 	 * Process the update of current directory
 	 */
 	public void onFileSelected(File result) {
-		this.result = file_browse.getSelectedFile();
+		current_file_selected = file_browse.getSelectedFile();
 		current_selection.setText(result.getAbsolutePath());
 	}
 
@@ -94,10 +97,31 @@ public class FileDialog extends AlertDialog implements FileSelectListener,
 	 * Process when the user click a button ('Cancel' or 'Select')
 	 */
 	public void onClick(DialogInterface dialog, int which) {
-		if (which == BUTTON_NEUTRAL)
-			result = null;
-		else if (listener != null) // notify the listener
-			listener.onFileSelected(result);
+		switch (which) {
+		case BUTTON_NEGATIVE:
+			current_file_selected = null;
+			super.dismiss();
+			break;
+		case BUTTON_NEUTRAL:
+			file_browse.goUp();
+			break;
+		case BUTTON_POSITIVE:
+		default:
+			// notify the listener about the selected file or directory
+			if (listener != null)
+				listener.onFileSelected(current_file_selected);
+			super.dismiss();
+			break;
+		}
+	}
+
+	/**
+	 * Override the {@link AlertDialog}'s dismiss to prevent dialog closing
+	 * after one of the buttons is clicked. The dismissal of the dialog is
+	 * controlled by onClick().
+	 */
+	@Override
+	public void dismiss() {
 	}
 
 }

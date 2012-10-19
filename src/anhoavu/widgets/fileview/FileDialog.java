@@ -9,6 +9,7 @@ import android.os.Environment;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import anhoavu.widgets.fileview.FileListView.FileSelectListener;
 
 /**
  * A reusable file/directory {@link ListView}.
@@ -25,7 +26,8 @@ import android.widget.ListView;
  * @author Vu An Hoa
  * 
  */
-public class FileDialog extends AlertDialog implements FileSelectListener,
+public class FileDialog extends AlertDialog implements
+		FileListView.FileSelectListener,
 		android.content.DialogInterface.OnClickListener {
 
 	/**
@@ -34,20 +36,20 @@ public class FileDialog extends AlertDialog implements FileSelectListener,
 	private File current_file_selected;
 
 	/**
-	 * The {@link FileListView} that list files in the current directory
-	 */
-	private FileListView file_browse;
-
-	/**
 	 * An {@link EditText}
 	 */
 	private EditText current_selection;
 
 	/**
+	 * The {@link FileListView} that list files in the current directory
+	 */
+	private FileListView file_browse;
+
+	/**
 	 * The {@link FileSelectListener} to update when the user click on 'Select'
 	 * to select a file
 	 */
-	private FileSelectListener listener;
+	private FileListView.FileSelectListener listener;
 
 	/**
 	 * Construct a dialog and register a listener who will get notified of the
@@ -56,41 +58,19 @@ public class FileDialog extends AlertDialog implements FileSelectListener,
 	 * @param context
 	 * @param listener
 	 */
-	public FileDialog(Context context, FileSelectListener listener) {
+	public FileDialog(Context context, FileListView.FileSelectListener listener) {
 		super(context);
 		this.listener = listener;
 		initializeView();
 	}
-	
-	void initializeView() {
-		File initial_directory = new File(Environment
-				.getExternalStorageDirectory().getPath());
-
-		LinearLayout dialog_layout = new LinearLayout(getContext());
-		dialog_layout.setOrientation(LinearLayout.VERTICAL);
-
-		current_selection = new EditText(getContext());
-		current_selection.setTextSize(16);
-		current_selection.setText(initial_directory.getAbsolutePath());
-		current_selection.setFocusable(false);
-
-		file_browse = new FileListView(getContext(), this, initial_directory);
-
-		dialog_layout.addView(current_selection);
-		dialog_layout.addView(file_browse);
-
-		setView(dialog_layout);
-		setButton(BUTTON_NEGATIVE, "Cancel", this);
-		setButton(BUTTON_NEUTRAL, "Up", this);
-		setButton(BUTTON_POSITIVE, "Select", this);
-	}
 
 	/**
-	 * Process the update of current directory
+	 * Override the {@link AlertDialog}'s dismiss to prevent dialog closing
+	 * after one of the buttons is clicked. The dismissal of the dialog is
+	 * controlled by onClick().
 	 */
-	public void onFileSelected(File result) {
-		current_file_selected = file_browse.getSelectedFile();
-		current_selection.setText(result.getAbsolutePath());
+	@Override
+	public void dismiss() {
 	}
 
 	/**
@@ -116,12 +96,34 @@ public class FileDialog extends AlertDialog implements FileSelectListener,
 	}
 
 	/**
-	 * Override the {@link AlertDialog}'s dismiss to prevent dialog closing
-	 * after one of the buttons is clicked. The dismissal of the dialog is
-	 * controlled by onClick().
+	 * Process the update of current directory
 	 */
-	@Override
-	public void dismiss() {
+	public void onFileSelected(File result) {
+		current_file_selected = file_browse.getSelectedFile();
+		current_selection.setText(result.getAbsolutePath());
+	}
+
+	void initializeView() {
+		File initial_directory = new File(Environment
+				.getExternalStorageDirectory().getPath());
+
+		LinearLayout dialog_layout = new LinearLayout(getContext());
+		dialog_layout.setOrientation(LinearLayout.VERTICAL);
+
+		current_selection = new EditText(getContext());
+		current_selection.setTextSize(16);
+		current_selection.setText(initial_directory.getAbsolutePath());
+		current_selection.setFocusable(false);
+
+		file_browse = new FileListView(getContext(), this, initial_directory);
+
+		dialog_layout.addView(current_selection);
+		dialog_layout.addView(file_browse);
+
+		setView(dialog_layout);
+		setButton(BUTTON_NEGATIVE, "Cancel", this);
+		setButton(BUTTON_NEUTRAL, "Up", this);
+		setButton(BUTTON_POSITIVE, "Select", this);
 	}
 
 }

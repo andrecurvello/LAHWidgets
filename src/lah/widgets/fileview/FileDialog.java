@@ -3,7 +3,6 @@ package lah.widgets.fileview;
 import java.io.File;
 
 import lah.widgets.fileview.FileListView.FileSelectListener;
-
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -74,6 +73,29 @@ public class FileDialog extends AlertDialog implements
 	public void dismiss() {
 	}
 
+	void initializeView() {
+		File initial_directory = new File(Environment
+				.getExternalStorageDirectory().getPath());
+
+		LinearLayout dialog_layout = new LinearLayout(getContext());
+		dialog_layout.setOrientation(LinearLayout.VERTICAL);
+
+		current_selection = new EditText(getContext());
+		current_selection.setTextSize(16);
+		current_selection.setText(initial_directory.getAbsolutePath());
+		current_selection.setFocusable(false);
+
+		file_browse = new FileListView(getContext(), this, initial_directory);
+
+		dialog_layout.addView(current_selection);
+		dialog_layout.addView(file_browse);
+
+		setView(dialog_layout);
+		setButton(BUTTON_NEGATIVE, "Cancel", this);
+		setButton(BUTTON_NEUTRAL, "Up", this);
+		setButton(BUTTON_POSITIVE, "Select", this);
+	}
+
 	/**
 	 * Process when the user click a button ('Cancel' or 'Select')
 	 */
@@ -102,29 +124,6 @@ public class FileDialog extends AlertDialog implements
 	public void onFileSelected(File result) {
 		current_file_selected = file_browse.getSelectedFile();
 		current_selection.setText(result.getAbsolutePath());
-	}
-
-	void initializeView() {
-		File initial_directory = new File(Environment
-				.getExternalStorageDirectory().getPath());
-
-		LinearLayout dialog_layout = new LinearLayout(getContext());
-		dialog_layout.setOrientation(LinearLayout.VERTICAL);
-
-		current_selection = new EditText(getContext());
-		current_selection.setTextSize(16);
-		current_selection.setText(initial_directory.getAbsolutePath());
-		current_selection.setFocusable(false);
-
-		file_browse = new FileListView(getContext(), this, initial_directory);
-
-		dialog_layout.addView(current_selection);
-		dialog_layout.addView(file_browse);
-
-		setView(dialog_layout);
-		setButton(BUTTON_NEGATIVE, "Cancel", this);
-		setButton(BUTTON_NEUTRAL, "Up", this);
-		setButton(BUTTON_POSITIVE, "Select", this);
 	}
 
 }

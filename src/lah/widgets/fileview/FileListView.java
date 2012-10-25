@@ -22,7 +22,32 @@ import android.widget.LinearLayout;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
-import anhoavu.widgets.fileview.R;
+
+/**
+ * Comparator to compare files, for display purpose. Rule: Directory always
+ * smaller than file. Otherwise, they should be compared by names. This
+ * comparator is used to compare files.
+ * 
+ * @author Vu An Hoa
+ * 
+ */
+class FileComparator implements Comparator<File> {
+
+	/**
+	 * Compare two files, two directory or a file and a directory.
+	 */
+	public int compare(File arg0, File arg1) {
+		assert (arg0 != null);
+		assert (arg1 != null);
+		if (arg0.isDirectory())
+			return arg1.isDirectory() ? arg0.getName()
+					.compareTo(arg1.getName()) : -1;
+		else
+			return arg1.isDirectory() ? 1 : arg0.getName().compareTo(
+					arg1.getName());
+	}
+
+}
 
 /**
  * An extension of {@link ListView} to allow users to browse file system. The
@@ -155,14 +180,14 @@ public class FileListView extends ListView implements
 	private Comparator<File> file_comparator = new FileComparator();
 
 	/**
-	 * The file the user currently selected. Must be a file in current_directory
-	 */
-	private File selected_file;
-
-	/**
 	 * Listener that this view to respond to
 	 */
 	FileSelectListener listener;
+
+	/**
+	 * The file the user currently selected. Must be a file in current_directory
+	 */
+	private File selected_file;
 
 	public FileListView(Context context, FileSelectListener listener,
 			File initial_directory) {
@@ -221,32 +246,6 @@ public class FileListView extends ListView implements
 	 */
 	public void setStartDirectory(File dir) {
 		adapter.gotoDirectory(dir);
-	}
-
-}
-
-/**
- * Comparator to compare files, for display purpose. Rule: Directory always
- * smaller than file. Otherwise, they should be compared by names. This
- * comparator is used to compare files.
- * 
- * @author Vu An Hoa
- * 
- */
-class FileComparator implements Comparator<File> {
-
-	/**
-	 * Compare two files, two directory or a file and a directory.
-	 */
-	public int compare(File arg0, File arg1) {
-		assert (arg0 != null);
-		assert (arg1 != null);
-		if (arg0.isDirectory())
-			return arg1.isDirectory() ? arg0.getName()
-					.compareTo(arg1.getName()) : -1;
-		else
-			return arg1.isDirectory() ? 1 : arg0.getName().compareTo(
-					arg1.getName());
 	}
 
 }

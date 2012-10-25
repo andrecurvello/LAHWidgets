@@ -1,6 +1,8 @@
-package anhoavu.widgets.fileview;
+package lah.widgets.fileview;
 
 import java.io.File;
+
+import lah.widgets.fileview.FileListView.FileSelectListener;
 
 import android.app.AlertDialog;
 import android.content.Context;
@@ -9,7 +11,6 @@ import android.os.Environment;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ListView;
-import anhoavu.widgets.fileview.FileListView.FileSelectListener;
 
 /**
  * A reusable file/directory {@link ListView}.

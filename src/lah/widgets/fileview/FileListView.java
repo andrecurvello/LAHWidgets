@@ -1,4 +1,4 @@
-package anhoavu.widgets.fileview;
+package lah.widgets.fileview;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -22,6 +22,7 @@ import android.widget.LinearLayout;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
+import anhoavu.widgets.fileview.R;
 
 /**
  * An extension of {@link ListView} to allow users to browse file system. The

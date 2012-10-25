@@ -6,7 +6,6 @@ import lah.widgets.fileview.FileListView.FileSelectListener;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
-import android.os.Environment;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ListView;
@@ -58,10 +57,11 @@ public class FileDialog extends AlertDialog implements
 	 * @param context
 	 * @param listener
 	 */
-	public FileDialog(Context context, FileListView.FileSelectListener listener) {
+	public FileDialog(Context context,
+			FileListView.FileSelectListener listener, String init_file) {
 		super(context);
 		this.listener = listener;
-		initializeView();
+		initializeView(init_file);
 	}
 
 	/**
@@ -73,19 +73,17 @@ public class FileDialog extends AlertDialog implements
 	public void dismiss() {
 	}
 
-	void initializeView() {
-		File initial_directory = new File(Environment
-				.getExternalStorageDirectory().getPath());
-
+	void initializeView(String path) {
 		LinearLayout dialog_layout = new LinearLayout(getContext());
 		dialog_layout.setOrientation(LinearLayout.VERTICAL);
 
+		file_browse = new FileListView(getContext(), this, new File(path));
+		current_file_selected = file_browse.getSelectedFile();
+
 		current_selection = new EditText(getContext());
 		current_selection.setTextSize(16);
-		current_selection.setText(initial_directory.getAbsolutePath());
+		current_selection.setText(current_file_selected.getAbsolutePath());
 		current_selection.setFocusable(false);
-
-		file_browse = new FileListView(getContext(), this, initial_directory);
 
 		dialog_layout.addView(current_selection);
 		dialog_layout.addView(file_browse);

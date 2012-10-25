@@ -10,6 +10,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
+import android.os.Environment;
 import android.text.Layout;
 import android.view.Gravity;
 import android.view.View;
@@ -101,7 +102,10 @@ public class FileListView extends ListView implements
 
 		@Override
 		public int getCount() {
-			return files.size();
+			if (files != null)
+				return files.size();
+			else
+				return 0;
 		}
 
 		@Override
@@ -164,6 +168,9 @@ public class FileListView extends ListView implements
 
 	}
 
+	private static final String DEFAULT_DIRECTORY = Environment
+			.getExternalStorageDirectory().getPath();
+
 	/**
 	 * Adapter to adapt to directory navigation
 	 */
@@ -194,11 +201,20 @@ public class FileListView extends ListView implements
 		super(context);
 
 		adapter = new FileViewArrayAdapter(context, 0);
-		adapter.gotoDirectory(initial_directory);
+		if (initial_directory == null || !initial_directory.exists()) {
+			initial_directory = new File(DEFAULT_DIRECTORY);
+			adapter.gotoDirectory(initial_directory);
+		} else {
+			if (initial_directory.isDirectory())
+				adapter.gotoDirectory(initial_directory);
+			else
+				adapter.gotoDirectory(initial_directory.getParentFile());
+		}
+		selected_file = initial_directory;
+
 		setAdapter(adapter);
 		setOnItemClickListener(this);
 
-		selected_file = initial_directory;
 		this.listener = listener;
 	}
 

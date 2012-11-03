@@ -27,7 +27,7 @@ public class OperationInProgressDialog extends AlertDialog {
 		content.setOrientation(LinearLayout.VERTICAL);
 
 		message_textview = new TextView(context);
-		message_textview.setPadding(10, 0, 0, 0);
+		message_textview.setPadding(10, 0, 10, 0);
 
 		operation_progress_bar = new ProgressBar(context, null,
 				android.R.attr.progressBarStyleHorizontal);
@@ -47,12 +47,6 @@ public class OperationInProgressDialog extends AlertDialog {
 		setView(content);
 	}
 
-	int progress;
-
-	int max_progress;
-
-	CharSequence message;
-
 	String progress_text_format = "%1d";
 
 	TextView message_textview;
@@ -62,7 +56,6 @@ public class OperationInProgressDialog extends AlertDialog {
 	TextView progress_textview;
 
 	public void setMessage(CharSequence msg) {
-		message = msg;
 		message_textview.setText(msg);
 	}
 

@@ -64,7 +64,6 @@ public class OperationInProgressDialog extends AlertDialog {
 	}
 
 	public void setProgress(int progress) {
-		System.out.println("Update progress to " + progress);
 		String progress_txt = String.format(progress_text_format, progress);
 		progress_textview.setText(progress_txt);
 		operation_progress_bar.setProgress(progress);

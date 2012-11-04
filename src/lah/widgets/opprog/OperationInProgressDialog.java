@@ -27,13 +27,15 @@ public class OperationInProgressDialog extends AlertDialog {
 		content.setOrientation(LinearLayout.VERTICAL);
 
 		message_textview = new TextView(context);
-		message_textview.setPadding(10, 0, 10, 0);
+		message_textview.setPadding(10, 5, 10, 5);
+		message_textview.setTextSize(20);
 
 		operation_progress_bar = new ProgressBar(context, null,
 				android.R.attr.progressBarStyleHorizontal);
-		operation_progress_bar.setPadding(10, 5, 10, 0);
+		operation_progress_bar.setPadding(10, 5, 10, 5);
 
 		progress_textview = new TextView(context);
+		progress_textview.setTextSize(20);
 		progress_textview.setPadding(0, 0, 10, 0);
 		progress_textview.setGravity(Gravity.RIGHT);
 
@@ -64,7 +66,14 @@ public class OperationInProgressDialog extends AlertDialog {
 	}
 
 	public void setProgress(int progress) {
-		String progress_txt = String.format(progress_text_format, progress);
+		setProgress(progress, String.format(progress_text_format, progress));
+	}
+	
+	public void setProgress(int progress, float progress_float) {
+		setProgress(progress, String.format(progress_text_format, progress_float));
+	}
+	
+	public void setProgress(int progress, String progress_txt) {
 		progress_textview.setText(progress_txt);
 		operation_progress_bar.setProgress(progress);
 	}

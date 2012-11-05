@@ -140,22 +140,24 @@ public class FileListView extends ListView implements
 		}
 
 		public void gotoDirectory(File directory) {
-			// All files in the directory
-			File[] all_files;
-			files = new ArrayList<File>();
 			if (directory.canRead()) {
-				current_directory = directory;
+				// List all files in the directory
+				File[] all_files = directory.listFiles();
 
 				// Sort the files
-				all_files = directory.listFiles();
 				Arrays.sort(all_files, file_comparator);
 
-				// Remove hidden files
+				// Construct the new file list to display
+				// with hidden files removed, use a new list object and latter
+				// swap with the main field to prevent interruption etc.
+				List<File> new_file_list = new ArrayList<File>();
 				for (File f : all_files)
 					if (!f.isHidden())
-						files.add(f);
+						new_file_list.add(f);
 
-				// Notify for display changes
+				// Finally, swap new changes and notify for display changes
+				current_directory = directory;
+				files = new_file_list;
 				notifyDataSetChanged();
 			}
 		}

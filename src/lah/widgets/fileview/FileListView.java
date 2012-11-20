@@ -163,9 +163,11 @@ public class FileListView extends ListView implements
 		}
 
 		public void gotoParent() {
-			File p = current_directory.getParentFile();
-			if (p != null)
-				gotoDirectory(p);
+			if (current_directory != null && current_directory.exists()) {
+				File p = current_directory.getParentFile();
+				if (p != null)
+					gotoDirectory(p);
+			}
 		}
 
 	}

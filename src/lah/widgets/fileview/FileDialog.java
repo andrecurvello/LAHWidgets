@@ -22,7 +22,7 @@ import android.widget.ListView;
  * 
  * TODO privatize the original {@link AlertDialog} methods
  * 
- * @author Vu An Hoa
+ * @author L.A.H.
  * 
  */
 public class FileDialog extends AlertDialog implements

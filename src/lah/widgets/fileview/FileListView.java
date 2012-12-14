@@ -29,7 +29,7 @@ import android.widget.TextView;
  * smaller than file. Otherwise, they should be compared by names. This
  * comparator is used to compare files.
  * 
- * @author Vu An Hoa
+ * @author L.A.H.
  * 
  */
 class FileComparator implements Comparator<File> {
@@ -58,7 +58,7 @@ class FileComparator implements Comparator<File> {
  * The {@link FileDialog} provides such a container that allows user to browse
  * and select a file or directory.
  * 
- * @author Vu An Hoa
+ * @author L.A.H.
  * 
  * @see FileDialog
  * 
@@ -72,7 +72,7 @@ public class FileListView extends ListView implements
 	 * select a file or navigate into a sub-directory, probably for display
 	 * purpose
 	 * 
-	 * @author Vu An Hoa
+	 * @author L.A.H.
 	 * 
 	 */
 	public interface FileSelectListener {
@@ -86,7 +86,7 @@ public class FileListView extends ListView implements
 	 * {@link FileListView}. This {@link Adapter} will watch a directory and its
 	 * content.
 	 * 
-	 * @author Vu An Hoa
+	 * @author L.A.H.
 	 * 
 	 */
 	class FileViewArrayAdapter extends ArrayAdapter<File> {

@@ -2,7 +2,6 @@ package lah.widgets.fileview;
 
 import java.io.File;
 
-import lah.widgets.fileview.FileListView.FileSelectListener;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -25,9 +24,8 @@ import android.widget.ListView;
  * @author L.A.H.
  * 
  */
-public class FileDialog extends AlertDialog implements
-		FileListView.FileSelectListener,
-		android.content.DialogInterface.OnClickListener {
+public class FileDialog extends AlertDialog implements IFileSelectListener,
+		DialogInterface.OnClickListener {
 
 	/**
 	 * The current file selected
@@ -45,10 +43,10 @@ public class FileDialog extends AlertDialog implements
 	private FileListView file_browse;
 
 	/**
-	 * The {@link FileSelectListener} to update when the user click on 'Select'
+	 * The {@link IFileSelectListener} to update when the user click on 'Select'
 	 * to select a file
 	 */
-	private FileListView.FileSelectListener listener;
+	private IFileSelectListener listener;
 
 	/**
 	 * Construct a dialog and register a listener who will get notified of the
@@ -57,8 +55,8 @@ public class FileDialog extends AlertDialog implements
 	 * @param context
 	 * @param listener
 	 */
-	public FileDialog(Context context,
-			FileListView.FileSelectListener listener, String init_file) {
+	public FileDialog(Context context, IFileSelectListener listener,
+			String init_file) {
 		super(context);
 		this.listener = listener;
 		initializeView(init_file);

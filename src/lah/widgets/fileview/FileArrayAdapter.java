@@ -13,15 +13,11 @@ import android.os.Environment;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Adapter;
 import android.widget.ArrayAdapter;
-import android.widget.ListAdapter;
 import android.widget.TextView;
 
 /**
- * An internal implementation of a {@link ListAdapter} to support
- * {@link FileListView}. This {@link Adapter} will watch a directory and its
- * content.
+ * Implementation of {@link ArrayAdapter} that adapts to file system interaction
  * 
  * @author L.A.H.
  * 
@@ -99,8 +95,6 @@ public class FileArrayAdapter extends ArrayAdapter<File> {
 
 	@Override
 	public View getView(int position, View convertView, ViewGroup parent) {
-		// TODO Apply the following guide to fix the list item view
-		// http://docs.xamarin.com/android/tutorials/ListViews_and_Adapters
 		Context context = parent.getContext();
 		File f = getItem(position); // get file at indicated position
 		TextView f_view = new TextView(context);
@@ -108,7 +102,6 @@ public class FileArrayAdapter extends ArrayAdapter<File> {
 		f_view.setCompoundDrawables(f.isDirectory() ? ic_directory : ic_file,
 				null, null, null);
 		f_view.setText(f.getName());
-		f_view.setTextSize(20);
 		return f_view;
 	}
 
@@ -128,7 +121,6 @@ public class FileArrayAdapter extends ArrayAdapter<File> {
 	 *            The new file
 	 */
 	public void setCurrentFile(File file) {
-		System.out.println("setCurrentFile: " + file);
 		if (file == null || !file.exists())
 			current_file = new File(DEFAULT_DIRECTORY);
 		else

@@ -2,12 +2,17 @@ package lah.widgets.fileview;
 
 import java.io.File;
 
+import lah.widgets.R;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
-import android.widget.EditText;
-import android.widget.LinearLayout;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.AdapterView.OnItemClickListener;
+import android.widget.ArrayAdapter;
 import android.widget.ListView;
+import android.widget.TextView;
 
 /**
  * A reusable file/directory {@link ListView}.
@@ -24,29 +29,19 @@ import android.widget.ListView;
  * @author L.A.H.
  * 
  */
-public class FileDialog extends AlertDialog implements IFileSelectListener,
+public class FileDialog extends AlertDialog implements // IFileSelectListener,
 		DialogInterface.OnClickListener {
-
-	/**
-	 * The current file selected
-	 */
-	private File current_file_selected;
-
-	/**
-	 * An {@link EditText}
-	 */
-	private EditText current_selection;
-
-	/**
-	 * The {@link FileListView} that list files in the current directory
-	 */
-	private FileListView file_browse;
 
 	/**
 	 * The {@link IFileSelectListener} to update when the user click on 'Select'
 	 * to select a file
 	 */
-	private IFileSelectListener listener;
+	private IFileSelectListener file_listener;
+
+	/**
+	 * {@link ArrayAdapter} to adapt to the file system
+	 */
+	private final FileArrayAdapter file_system_adapter;
 
 	/**
 	 * Construct a dialog and register a listener who will get notified of the
@@ -58,8 +53,31 @@ public class FileDialog extends AlertDialog implements IFileSelectListener,
 	public FileDialog(Context context, IFileSelectListener listener,
 			String init_file) {
 		super(context);
-		this.listener = listener;
-		initializeView(init_file);
+		file_listener = listener;
+		file_system_adapter = new FileArrayAdapter(context, 0, new File(
+				init_file));
+		setButton(BUTTON_NEGATIVE, "Cancel", this);
+		setButton(BUTTON_NEUTRAL, "Up", this);
+		setButton(BUTTON_POSITIVE, "Select", this);
+		View view = ((LayoutInflater) context
+				.getSystemService(Context.LAYOUT_INFLATER_SERVICE)).inflate(
+				R.layout.file_dialog, null);
+		ListView file_list = (ListView) view.findViewById(R.id.file_list);
+		final TextView file_path_textview = (TextView) view
+				.findViewById(R.id.current_file);
+		OnItemClickListener file_listener = new OnItemClickListener() {
+
+			public void onItemClick(AdapterView<?> parent, View view,
+					int position, long id) {
+				file_system_adapter.onItemSelected(position);
+				file_path_textview.setText(file_system_adapter.getCurrentFile()
+						.getAbsolutePath());
+			}
+
+		};
+		file_list.setAdapter(file_system_adapter);
+		file_list.setOnItemClickListener(file_listener);
+		setView(view);
 	}
 
 	/**
@@ -71,55 +89,26 @@ public class FileDialog extends AlertDialog implements IFileSelectListener,
 	public void dismiss() {
 	}
 
-	void initializeView(String path) {
-		LinearLayout dialog_layout = new LinearLayout(getContext());
-		dialog_layout.setOrientation(LinearLayout.VERTICAL);
-
-		file_browse = new FileListView(getContext(), this, new File(path));
-		current_file_selected = file_browse.getSelectedFile();
-
-		current_selection = new EditText(getContext());
-		current_selection.setTextSize(16);
-		current_selection.setText(current_file_selected.getAbsolutePath());
-		current_selection.setFocusable(false);
-
-		dialog_layout.addView(current_selection);
-		dialog_layout.addView(file_browse);
-
-		setView(dialog_layout);
-		setButton(BUTTON_NEGATIVE, "Cancel", this);
-		setButton(BUTTON_NEUTRAL, "Up", this);
-		setButton(BUTTON_POSITIVE, "Select", this);
-	}
-
 	/**
 	 * Process when the user click a button ('Cancel' or 'Select')
 	 */
 	public void onClick(DialogInterface dialog, int which) {
 		switch (which) {
 		case BUTTON_NEGATIVE:
-			current_file_selected = null;
 			super.dismiss();
 			break;
 		case BUTTON_NEUTRAL:
-			file_browse.goUp();
+			file_system_adapter.setFilesInParent();
 			break;
 		case BUTTON_POSITIVE:
 		default:
 			// notify the listener about the selected file or directory
-			if (listener != null)
-				listener.onFileSelected(current_file_selected);
+			if (file_listener != null)
+				file_listener.onFileSelected(file_system_adapter
+						.getCurrentFile());
 			super.dismiss();
 			break;
 		}
-	}
-
-	/**
-	 * Process the update of current directory
-	 */
-	public void onFileSelected(File result) {
-		current_file_selected = file_browse.getSelectedFile();
-		current_selection.setText(result.getAbsolutePath());
 	}
 
 }

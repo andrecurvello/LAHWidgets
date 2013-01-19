@@ -173,4 +173,11 @@ public class FileArrayAdapter extends ArrayAdapter<File> {
 		}
 	}
 
+	/**
+	 * Update the files list
+	 */
+	public void reList() {
+		setCurrentFile(current_file);
+	}
+
 }

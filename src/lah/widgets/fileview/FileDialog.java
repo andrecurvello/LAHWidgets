@@ -24,12 +24,14 @@ import android.widget.TextView;
  * <li>[some time in the future] choose a local installation location.</li>
  * </ul>
  * 
+ * This dialog is safe for reused
+ * 
  * TODO privatize the original {@link AlertDialog} methods
  * 
  * @author L.A.H.
  * 
  */
-public class FileDialog extends AlertDialog implements // IFileSelectListener,
+public class FileDialog extends AlertDialog implements
 		DialogInterface.OnClickListener {
 
 	/**
@@ -109,6 +111,12 @@ public class FileDialog extends AlertDialog implements // IFileSelectListener,
 			super.dismiss();
 			break;
 		}
+	}
+
+	@Override
+	public void show() {
+		super.show();
+		file_system_adapter.reList();
 	}
 
 }

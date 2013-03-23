@@ -102,6 +102,8 @@ public class FileArrayAdapter extends ArrayAdapter<File> {
 		f_view.setCompoundDrawables(f.isDirectory() ? ic_directory : ic_file,
 				null, null, null);
 		f_view.setText(f.getName());
+		f_view.setTextAppearance(getContext(),
+				android.R.style.TextAppearance_Medium);
 		return f_view;
 	}
 

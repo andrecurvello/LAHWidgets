@@ -7,4 +7,9 @@
         android:minSdkVersion="8"
         android:targetSdkVersion="17" />
 
+    <application>
+        <activity android:name="lah.widgets.activities.MultipleSelectListActivity" >
+        </activity>
+    </application>
+
 </manifest>

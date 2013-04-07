@@ -4,6 +4,7 @@ import java.io.File;
 
 import lah.widgets.R;
 import android.os.Bundle;
+import android.os.Environment;
 import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -22,8 +23,7 @@ public class FileBrowseFragment extends Fragment {
 
 	public static final String ARG_INITIAL_DIRECTORY = "initial_directory";
 
-	public static FileBrowseFragment newInstance(String initial_directory,
-			IFileSelectListener listener) {
+	public static FileBrowseFragment newInstance(String initial_directory, IFileSelectListener listener) {
 		FileBrowseFragment fragment = new FileBrowseFragment();
 		fragment.listener = listener;
 		fragment.initial_file = initial_directory;
@@ -52,18 +52,14 @@ public class FileBrowseFragment extends Fragment {
 	}
 
 	@Override
-	public View onCreateView(LayoutInflater inflater, ViewGroup container,
-			Bundle savedInstanceState) {
-		file_system_adapter = new FileArrayAdapter(container.getContext(), 0,
-				new File(initial_file));
-		View fragment_view = inflater.inflate(R.layout.fragment_file_browse,
-				container, false);
-		ListView file_list = (ListView) fragment_view
-				.findViewById(R.id.file_list);
+	public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+		file_system_adapter = new FileArrayAdapter(container.getContext(), 0, initial_file != null ? new File(
+				initial_file) : Environment.getExternalStorageDirectory());
+		View fragment_view = inflater.inflate(R.layout.fragment_file_browse, container, false);
+		ListView file_list = (ListView) fragment_view.findViewById(R.id.file_list);
 		OnItemClickListener file_listener = new OnItemClickListener() {
 
-			public void onItemClick(AdapterView<?> parent, View view,
-					int position, long id) {
+			public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
 				file_system_adapter.onItemSelected(position);
 				listener.onFileSelected(file_system_adapter.getItem(position));
 			}

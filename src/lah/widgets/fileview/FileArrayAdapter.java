@@ -24,8 +24,7 @@ import android.widget.TextView;
  */
 public class FileArrayAdapter extends ArrayAdapter<File> {
 
-	private static final String DEFAULT_DIRECTORY = Environment
-			.getExternalStorageDirectory().getPath();
+	private static final String DEFAULT_DIRECTORY = Environment.getExternalStorageDirectory().getPath();
 
 	/**
 	 * The current file
@@ -48,25 +47,20 @@ public class FileArrayAdapter extends ArrayAdapter<File> {
 	private final Drawable ic_file, ic_directory;
 
 	/**
-	 * Construct a new adapter, with the selected file set to init_file or a
-	 * safe default directory /sdcard if this init_file does not exist, cannot
-	 * be read, or is null
+	 * Construct a new adapter, with the selected file set to init_file or a safe default directory /sdcard if this
+	 * init_file does not exist, cannot be read, or is null
 	 * 
 	 * @param context
 	 * @param textViewResourceId
 	 * @param init_file
 	 *            Initial file to bind this adapter to
 	 */
-	public FileArrayAdapter(Context context, int textViewResourceId,
-			File init_file) {
+	public FileArrayAdapter(Context context, int textViewResourceId, File init_file) {
 		super(context, textViewResourceId);
-		ic_directory = context.getResources().getDrawable(
-				R.drawable.ic_directory);
-		ic_directory.setBounds(0, 0, ic_directory.getIntrinsicWidth(),
-				ic_directory.getIntrinsicHeight());
+		ic_directory = context.getResources().getDrawable(R.drawable.ic_directory);
+		ic_directory.setBounds(0, 0, ic_directory.getIntrinsicWidth(), ic_directory.getIntrinsicHeight());
 		ic_file = context.getResources().getDrawable(R.drawable.ic_file);
-		ic_file.setBounds(0, 0, ic_file.getIntrinsicWidth(),
-				ic_file.getIntrinsicHeight());
+		ic_file.setBounds(0, 0, ic_file.getIntrinsicWidth(), ic_file.getIntrinsicHeight());
 		file_comparator = new FileComparator(); // default file comparator
 		setCurrentFile(init_file);
 	}
@@ -99,11 +93,9 @@ public class FileArrayAdapter extends ArrayAdapter<File> {
 		File f = getItem(position); // get file at indicated position
 		TextView f_view = new TextView(context);
 		f_view.setGravity(Gravity.CENTER_VERTICAL);
-		f_view.setCompoundDrawables(f.isDirectory() ? ic_directory : ic_file,
-				null, null, null);
+		f_view.setCompoundDrawables(f.isDirectory() ? ic_directory : ic_file, null, null, null);
 		f_view.setText(f.getName());
-		f_view.setTextAppearance(getContext(),
-				android.R.style.TextAppearance_Medium);
+		f_view.setTextAppearance(getContext(), android.R.style.TextAppearance_Medium);
 		return f_view;
 	}
 
@@ -117,6 +109,13 @@ public class FileArrayAdapter extends ArrayAdapter<File> {
 	}
 
 	/**
+	 * Update the files list
+	 */
+	public void reList() {
+		setCurrentFile(current_file);
+	}
+
+	/**
 	 * Set the current file
 	 * 
 	 * @param file
@@ -127,8 +126,7 @@ public class FileArrayAdapter extends ArrayAdapter<File> {
 			current_file = new File(DEFAULT_DIRECTORY);
 		else
 			current_file = file;
-		setFilesInDirectory(current_file.isFile() ? current_file
-				.getParentFile() : current_file);
+		setFilesInDirectory(current_file.isFile() ? current_file.getParentFile() : current_file);
 	}
 
 	/**
@@ -161,9 +159,8 @@ public class FileArrayAdapter extends ArrayAdapter<File> {
 	}
 
 	/**
-	 * Set the files list to contain all files in the parent directory of the
-	 * currently selected file (if it is a directory) or its grandparent if it
-	 * is a file.
+	 * Set the files list to contain all files in the parent directory of the currently selected file (if it is a
+	 * directory) or its grandparent if it is a file.
 	 */
 	public void setFilesInParent() {
 		if (current_file != null && current_file.exists()) {
@@ -173,13 +170,6 @@ public class FileArrayAdapter extends ArrayAdapter<File> {
 			if (parent != null)
 				setCurrentFile(parent);
 		}
-	}
-
-	/**
-	 * Update the files list
-	 */
-	public void reList() {
-		setCurrentFile(current_file);
 	}
 
 }

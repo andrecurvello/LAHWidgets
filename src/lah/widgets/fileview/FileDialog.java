@@ -53,9 +53,9 @@ public class FileDialog extends AlertDialog implements DialogInterface.OnClickLi
 		super(context);
 		file_listener = listener;
 		file_system_adapter = new FileArrayAdapter(context, 0, new File(init_file));
-		setButton(BUTTON_NEGATIVE, "Cancel", this);
-		setButton(BUTTON_NEUTRAL, "Up", this);
-		setButton(BUTTON_POSITIVE, "Select", this);
+		setButton(BUTTON_NEGATIVE, context.getResources().getString(R.string.action_cancel), this);
+		setButton(BUTTON_NEUTRAL, context.getResources().getString(R.string.action_up), this);
+		setButton(BUTTON_POSITIVE, context.getResources().getString(R.string.action_select), this);
 		View view = ((LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE)).inflate(
 				R.layout.file_dialog, null);
 		ListView file_list = (ListView) view.findViewById(R.id.file_list);

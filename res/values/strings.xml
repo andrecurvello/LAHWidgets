@@ -6,5 +6,7 @@
     <string name="action_select_all">Select All</string>
     <string name="action_select_none">None</string>
     <string name="action_cancel">Cancel</string>
+    <string name="action_up">Up</string>
+    <string name="action_select">Select</string>
 
 </resources>

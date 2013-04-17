@@ -4,8 +4,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Locale;
 
-import lah.widgets.R;
-
 import org.xmlpull.v1.XmlPullParserException;
 
 import android.annotation.SuppressLint;
@@ -29,19 +27,22 @@ import android.os.SystemClock;
 import android.text.BoringLayout;
 import android.text.DynamicLayout;
 import android.text.Editable;
+import android.text.GetChars;
+import android.text.InputType;
 import android.text.Layout;
 import android.text.Selection;
 import android.text.SpanWatcher;
 import android.text.Spannable;
+import android.text.SpannableStringBuilder;
 import android.text.Spanned;
+import android.text.SpannedString;
 import android.text.TextPaint;
 import android.text.TextWatcher;
+import android.text.method.BaseKeyListener;
 import android.text.method.KeyListener;
 import android.text.method.MetaKeyKeyListener;
-import android.text.method.TextKeyListener;
 import android.text.style.CharacterStyle;
 import android.text.style.ParagraphStyle;
-import android.text.style.SuggestionSpan;
 import android.text.style.URLSpan;
 import android.text.style.UpdateAppearance;
 import android.text.util.Linkify;
@@ -133,20 +134,22 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		public void onSpanAdded(Spannable buf, Object what, int s, int e) {
 			if (DEBUG_EXTRACT)
 				Log.v(LOG_TAG, "onSpanAdded s=" + s + " e=" + e + " what=" + what + ": " + buf);
-			TextArea.this.spanChange(buf, what, -1, s, -1, e);
+			// TextArea.this.spanChange(buf, what, -1, s, -1, e);
 		}
 
 		public void onSpanChanged(Spannable buf, Object what, int s, int e, int st, int en) {
 			if (DEBUG_EXTRACT)
 				Log.v(LOG_TAG, "onSpanChanged s=" + s + " e=" + e + " st=" + st + " en=" + en + " what=" + what + ": "
 						+ buf);
-			TextArea.this.spanChange(buf, what, s, st, e, en);
+			// long t = System.currentTimeMillis();
+			// TextArea.this.spanChange(buf, what, s, st, e, en);
+			// Log.v("onSpanChanged", "Time taken = " + (System.currentTimeMillis() - t));
 		}
 
 		public void onSpanRemoved(Spannable buf, Object what, int s, int e) {
 			if (DEBUG_EXTRACT)
 				Log.v(LOG_TAG, "onSpanRemoved s=" + s + " e=" + e + " what=" + what + ": " + buf);
-			TextArea.this.spanChange(buf, what, s, -1, e, -1);
+			// TextArea.this.spanChange(buf, what, s, -1, e, -1);
 		}
 
 		public void onTextChanged(CharSequence buffer, int start, int before, int after) {
@@ -175,6 +178,65 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		 * Makes the cursor controller visible on screen. See also {@link #hide()}.
 		 */
 		public void show();
+	}
+
+	class EditableInputConnection extends BaseInputConnection {
+
+		private static final boolean DEBUG = false;
+
+		private static final String TAG = "EditableInputConnection";
+
+		// Keeps track of nested begin/end batch edit to ensure this connection always has a
+		// balanced impact on its associated TextView.
+		// A negative value means that this connection has been finished by the InputMethodManager.
+		private int mBatchEditNesting;
+
+		public EditableInputConnection() {
+			super(TextArea.this, true);
+		}
+
+		@Override
+		public boolean beginBatchEdit() {
+			synchronized (this) {
+				if (mBatchEditNesting >= 0) {
+					TextArea.this.beginBatchEdit();
+					mBatchEditNesting++;
+					return true;
+				}
+			}
+			return false;
+		}
+
+		@Override
+		public boolean commitCompletion(CompletionInfo text) {
+			if (DEBUG)
+				Log.v(TAG, "commitCompletion " + text);
+			TextArea.this.beginBatchEdit();
+			TextArea.this.onCommitCompletion(text);
+			TextArea.this.endBatchEdit();
+			return true;
+		}
+
+		@Override
+		public boolean endBatchEdit() {
+			synchronized (this) {
+				if (mBatchEditNesting > 0) {
+					// When the connection is reset by the InputMethodManager and reportFinish
+					// is called, some endBatchEdit calls may still be asynchronously received from the
+					// IME. Do not take these into account, thus ensuring that this IC's final
+					// contribution to mTextView's nested batch edit count is zero.
+					TextArea.this.endBatchEdit();
+					mBatchEditNesting--;
+					return true;
+				}
+			}
+			return false;
+		}
+
+		@Override
+		public Editable getEditable() {
+			return TextArea.this.mText;
+		}
 	}
 
 	public abstract class HandleView extends View implements TextViewPositionListener {
@@ -711,15 +773,217 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 		private void updatePosition() {
 			getLocationInWindow(mTempCoords);
-
 			mPositionHasChanged = mTempCoords[0] != mPositionX || mTempCoords[1] != mPositionY;
-
 			mPositionX = mTempCoords[0];
 			mPositionY = mTempCoords[1];
 		}
 	}
 
+	static class QwertyKeyListener extends BaseKeyListener {
+
+		private static QwertyKeyListener sInstance;
+
+		public static QwertyKeyListener getInstance() {
+			if (sInstance == null)
+				sInstance = new QwertyKeyListener();
+			return sInstance;
+		}
+
+		@Override
+		public int getInputType() {
+			return InputType.TYPE_NULL;
+		};
+
+		@Override
+		public boolean onKeyDown(View view, Editable content, int keyCode, KeyEvent event) {
+			int selStart, selEnd;
+			int a = Selection.getSelectionStart(content);
+			int b = Selection.getSelectionEnd(content);
+			selStart = Math.min(a, b);
+			selEnd = Math.max(a, b);
+
+			if (selStart < 0 || selEnd < 0) {
+				selStart = selEnd = 0;
+				Selection.setSelection(content, 0, 0);
+			}
+
+			int i = event.getUnicodeChar(event.getMetaState() | getMetaState(content));
+
+			// if (!mFullKeyboard) {
+			// int count = event.getRepeatCount();
+			// if (count > 0 && selStart == selEnd && selStart > 0) {
+			// char c = content.charAt(selStart - 1);
+			// if (c == i || c == Character.toUpperCase(i) && view != null) {
+			// if (showCharacterPicker(view, content, c, false, count)) {
+			// resetMetaState(content);
+			// return true;
+			// }
+			// }
+			// }
+			// }
+
+			if (i != 0) {
+				if (selStart != selEnd) {
+					Selection.setSelection(content, selEnd);
+				}
+
+				content.replace(selStart, selEnd, String.valueOf((char) i));
+
+				selEnd = Selection.getSelectionEnd(content);
+				adjustMetaAfterKeypress(content);
+				// if (keyCode == KeyEvent.KEYCODE_DEL
+				// && (event.hasNoModifiers() || event.hasModifiers(KeyEvent.META_ALT_ON)) && selStart == selEnd) {
+				// }
+			}
+
+			return super.onKeyDown(view, content, keyCode, event);
+		}
+	}
+
+	public static class TextUtils {
+
+		private static Object sLock = new Object();
+
+		private static char[] sTemp = null;
+
+		public static void getChars(CharSequence s, int start, int end, char[] dest, int destoff) {
+			Class<? extends CharSequence> c = s.getClass();
+
+			if (c == String.class)
+				((String) s).getChars(start, end, dest, destoff);
+			else if (c == StringBuffer.class)
+				((StringBuffer) s).getChars(start, end, dest, destoff);
+			else if (c == StringBuilder.class)
+				((StringBuilder) s).getChars(start, end, dest, destoff);
+			else if (s instanceof GetChars)
+				((GetChars) s).getChars(start, end, dest, destoff);
+			else {
+				for (int i = start; i < end; i++)
+					dest[destoff++] = s.charAt(i);
+			}
+		}
+
+		public static int idealByteArraySize(int need) {
+			for (int i = 4; i < 32; i++)
+				if (need <= (1 << i) - 12)
+					return (1 << i) - 12;
+
+			return need;
+		}
+
+		public static int idealCharArraySize(int need) {
+			return idealByteArraySize(need * 2) / 2;
+		}
+
+		/**
+		 * Returns true if the string is null or 0-length.
+		 * 
+		 * @param str
+		 *            the string to be examined
+		 * @return true if str is null or zero length
+		 */
+		public static boolean isEmpty(CharSequence str) {
+			if (str == null || str.length() == 0)
+				return true;
+			else
+				return false;
+		}
+
+		static char[] obtain(int len) {
+			char[] buf;
+
+			synchronized (sLock) {
+				buf = sTemp;
+				sTemp = null;
+			}
+
+			if (buf == null || buf.length < len)
+				buf = new char[idealCharArraySize(len)];
+
+			return buf;
+		}
+
+		/**
+		 * Pack 2 int values into a long, useful as a return value for a range
+		 * 
+		 * @see #unpackRangeStartFromLong(long)
+		 * @see #unpackRangeEndFromLong(long)
+		 * @hide
+		 */
+		public static long packRangeInLong(int start, int end) {
+			return (((long) start) << 32) | end;
+		}
+
+		static void recycle(char[] temp) {
+			if (temp.length > 1000)
+				return;
+
+			synchronized (sLock) {
+				sTemp = temp;
+			}
+		}
+
+		public static CharSequence stringOrSpannedString(CharSequence source) {
+			if (source == null)
+				return null;
+			if (source instanceof SpannedString)
+				return source;
+			if (source instanceof Spanned)
+				return new SpannedString(source);
+
+			return source.toString();
+		}
+
+		/**
+		 * Create a new String object containing the given range of characters from the source string. This is different
+		 * than simply calling {@link CharSequence#subSequence(int, int) CharSequence.subSequence} in that it does not
+		 * preserve any style runs in the source sequence, allowing a more efficient implementation.
+		 */
+		public static String substring(CharSequence source, int start, int end) {
+			if (source instanceof String)
+				return ((String) source).substring(start, end);
+			if (source instanceof StringBuilder)
+				return ((StringBuilder) source).substring(start, end);
+			if (source instanceof StringBuffer)
+				return ((StringBuffer) source).substring(start, end);
+
+			char[] temp = obtain(end - start);
+			getChars(source, start, end, temp, 0);
+			String ret = new String(temp, 0, end - start);
+			recycle(temp);
+
+			return ret;
+		}
+
+		/**
+		 * Get the end value from a range packed in a long by {@link #packRangeInLong(int, int)}
+		 * 
+		 * @see #unpackRangeStartFromLong(long)
+		 * @see #packRangeInLong(int, int)
+		 * @hide
+		 */
+		public static int unpackRangeEndFromLong(long range) {
+			return (int) (range & 0x00000000FFFFFFFFL);
+		}
+
+		/**
+		 * Get the start value from a range packed in a long by {@link #packRangeInLong(int, int)}
+		 * 
+		 * @see #unpackRangeEndFromLong(long)
+		 * @see #packRangeInLong(int, int)
+		 * @hide
+		 */
+		public static int unpackRangeStartFromLong(long range) {
+			return (int) (range >>> 32);
+		}
+
+		private TextUtils() { /* cannot be instantiated */
+		}
+
+	}
+
 	public interface TextViewPositionListener {
+
 		public void updatePosition(int parentPositionX, int parentPositionY, boolean parentPositionChanged,
 				boolean parentScrolled);
 	}
@@ -795,7 +1059,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 	private BoringLayout.Metrics mBoring;
 
-	private ChangeWatcher mChangeWatcher;
+	private final ChangeWatcher mChangeWatcher = new ChangeWatcher();
 
 	ClipboardManager mClipboard;
 
@@ -817,18 +1081,16 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 	private boolean mDispatchTemporaryDetach;
 
-	private Editable.Factory mEditableFactory = Editable.Factory.getInstance();
-
 	boolean mFrozenWithFocus;
 
 	private int mGravity = Gravity.TOP | Gravity.START;
-
 	// It is possible to have a selection even when mEditor is null (programmatically set, like when
 	// a link is pressed). These highlight-related fields do not go in mEditor.
 	int mHighlightColor = 0x6633B5E5;
-
 	private final Paint mHighlightPaint;
+
 	private Path mHighlightPath;
+
 	private boolean mHighlightPathBogus = true;
 
 	private boolean mHorizontallyScrolling;
@@ -849,7 +1111,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 	InsertionPointCursorController mInsertionPointCursorController;
 
-	KeyListener mKeyListener;
+	private final KeyListener mKeyListener = QwertyKeyListener.getInstance(); // = TextKeyListener.getInstance();
 
 	float mLastDownPositionX, mLastDownPositionY;
 
@@ -859,11 +1121,10 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 	private Layout mLayout;
 
-	// The alignment to pass to Layout, or null if not resolved.
-	private Layout.Alignment mLayoutAlignment;
-
 	private ColorStateList mLinkTextColor;
+
 	private ArrayList<TextWatcher> mListeners;
+
 	private int mMaximum = Integer.MAX_VALUE;
 
 	private int mMaxMode = LINES;
@@ -873,38 +1134,49 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	private int mMaxWidthMode = PIXELS;
 
 	private int mMinimum = 0;
+
 	private int mMinMode = LINES;
+
 	private int mMinWidth = 0;
+
 	private int mMinWidthMode = PIXELS;
 
 	private int mOldMaximum = mMaximum;
 
 	private int mOldMaxMode = mMaxMode;
+
 	// Global listener that detects changes in the global position of the TextView
 	private PositionListener mPositionListener = new PositionListener();
+
 	private boolean mPreDrawRegistered;
+
 	boolean mPreserveDetachedSelection;
 
-	private int mResolvedTextAlignment;
 	private Scroller mScroller;
+
 	boolean mSelectAllOnFocus;
 
 	private Drawable mSelectHandleCenter;
+
 	boolean mSelectionMoved;
+
 	private float mShadowRadius, mShadowDx, mShadowDy;
 
 	long mShowCursor;
+
 	boolean mShowSoftInputOnFocus = true;
 
 	private float mSpacingAdd = 0.0f;
+
 	private float mSpacingMult = 1.0f;
+
 	private boolean mTemporaryDetach;
 
 	// tmp primitives, so we don't alloc them on each draw
 	private Rect mTempRect;
 
 	@ViewDebug.ExportedProperty(category = "text")
-	private CharSequence mText;
+	private Editable mText = new SpannableStringBuilder();
 
 	private ColorStateList mTextColor;
 
@@ -920,31 +1192,25 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 	private CharSequence mTransformed;
 
-	private boolean mUserSetTextScaleX;
-
 	public TextArea(Context context, AttributeSet attrs) {
 		super(context, attrs);
 		mIMM = (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
 		mClipboard = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
 		mICT = new InputContentType();
 		mIMS = new InputMethodState();
-		mText = "";
 
 		final Resources res = getResources();
 
 		mTextPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
 		mTextPaint.density = res.getDisplayMetrics().density;
 		mHighlightPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
 		ColorStateList textColor = null;
 		int textSize = 20;
-		CharSequence text = "";
-
-		mKeyListener = TextKeyListener.getInstance();
 		setTextColor(textColor != null ? textColor : ColorStateList.valueOf(0xFF000000));
 		setRawTextSize(textSize);
 		setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-		setText(text);
-		boolean focusable = getKeyListener() != null;
+		boolean focusable = true;
 		boolean clickable = focusable;
 		boolean longClickable = focusable;
 		setFocusable(focusable);
@@ -989,7 +1255,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	 * BufferType.EDITABLE if it was not already editable.
 	 */
 	public void append(CharSequence text, int start, int end) {
-		((Editable) mText).append(text, start, end);
+		mText.append(text, start, end);
 	}
 
 	/**
@@ -1397,7 +1663,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	 * @hide
 	 */
 	protected void deleteText_internal(int start, int end) {
-		((Editable) mText).delete(start, end);
+		mText.delete(start, end);
 	}
 
 	/**
@@ -1457,7 +1723,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		if (otherEvent != null) {
 			try {
 				beginBatchEdit();
-				final boolean handled = mKeyListener.onKeyOther(this, (Editable) mText, otherEvent);
+				final boolean handled = mKeyListener.onKeyOther(this, mText, otherEvent);
 				doDown = false;
 				if (handled) {
 					return -1;
@@ -1472,7 +1738,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 		if (doDown) {
 			beginBatchEdit();
-			final boolean handled = mKeyListener.onKeyDown(this, (Editable) mText, keyCode, event);
+			final boolean handled = mKeyListener.onKeyDown(this, mText, keyCode, event);
 			endBatchEdit();
 			if (handled)
 				return 1;
@@ -1670,10 +1936,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		desired = Math.max(desired, getSuggestedMinimumHeight());
 
 		return desired;
-	}
-
-	public Editable getEditableText() {
-		return (Editable) mText;
 	}
 
 	/**
@@ -1887,16 +2149,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		return mICT.extras;
 	}
 
-	/**
-	 * Get the type of the editable content.
-	 * 
-	 * @see #setInputType(int)
-	 * @see android.text.InputType
-	 */
-	public int getInputType() {
-		return EditorInfo.TYPE_NULL;
-	}
-
 	private InsertionPointCursorController getInsertionController() {
 		if (!mInsertionControllerEnabled) {
 			return null;
@@ -1924,13 +2176,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 			r.bottom += getExtendedPaddingBottom();
 	}
 
-	/**
-	 * @return the current key listener for this TextView. This will frequently be null for non-EditText TextViews.
-	 */
-	public final KeyListener getKeyListener() {
-		return mKeyListener;
-	}
-
 	private int getLastTapPosition() {
 		// No need to create the controller at that point, no last tap position saved
 		return -1;
@@ -1942,60 +2187,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	 */
 	public final Layout getLayout() {
 		return mLayout;
-	}
-
-	private Layout.Alignment getLayoutAlignment() {
-		if (mLayoutAlignment == null) {
-			mResolvedTextAlignment = getTextAlignment();
-			switch (mResolvedTextAlignment) {
-			case TEXT_ALIGNMENT_GRAVITY:
-				switch (mGravity & Gravity.RELATIVE_HORIZONTAL_GRAVITY_MASK) {
-				case Gravity.START:
-					mLayoutAlignment = Layout.Alignment.ALIGN_NORMAL;
-					break;
-				case Gravity.END:
-					mLayoutAlignment = Layout.Alignment.ALIGN_OPPOSITE;
-					break;
-				// case Gravity.LEFT:
-				// mLayoutAlignment = Layout.Alignment.ALIGN_LEFT;
-				// break;
-				// case Gravity.RIGHT:
-				// mLayoutAlignment = Layout.Alignment.ALIGN_RIGHT;
-				// break;
-				case Gravity.CENTER_HORIZONTAL:
-					mLayoutAlignment = Layout.Alignment.ALIGN_CENTER;
-					break;
-				default:
-					mLayoutAlignment = Layout.Alignment.ALIGN_NORMAL;
-					break;
-				}
-				break;
-			case TEXT_ALIGNMENT_TEXT_START:
-				mLayoutAlignment = Layout.Alignment.ALIGN_NORMAL;
-				break;
-			case TEXT_ALIGNMENT_TEXT_END:
-				mLayoutAlignment = Layout.Alignment.ALIGN_OPPOSITE;
-				break;
-			case TEXT_ALIGNMENT_CENTER:
-				mLayoutAlignment = Layout.Alignment.ALIGN_CENTER;
-				break;
-			// case TEXT_ALIGNMENT_VIEW_START:
-			// mLayoutAlignment = (getLayoutDirection() == LAYOUT_DIRECTION_RTL) ? Layout.Alignment.ALIGN_RIGHT
-			// : Layout.Alignment.ALIGN_LEFT;
-			// break;
-			// case TEXT_ALIGNMENT_VIEW_END:
-			// mLayoutAlignment = (getLayoutDirection() == LAYOUT_DIRECTION_RTL) ? Layout.Alignment.ALIGN_LEFT
-			// : Layout.Alignment.ALIGN_RIGHT;
-			// break;
-			case TEXT_ALIGNMENT_INHERIT:
-				// This should never happen as we have already resolved the text alignment
-				// but better safe than sorry so we just fall through
-			default:
-				mLayoutAlignment = Layout.Alignment.ALIGN_NORMAL;
-				break;
-			}
-		}
-		return mLayoutAlignment;
 	}
 
 	@Override
@@ -2675,6 +2866,13 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		return mIMM.isActive(this);
 	}
 
+	// /**
+	// * Return the number of lines of text, or 0 if the internal Layout has not been built.
+	// */
+	// public int getLineCount() {
+	// return mLayout != null ? mLayout.getLineCount() : 0;
+	// }
+
 	@Override
 	protected boolean isPaddingOffsetRequired() {
 		return mShadowRadius != 0;
@@ -2698,13 +2896,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 			return false;
 		return true;
 	}
-
-	// /**
-	// * Return the number of lines of text, or 0 if the internal Layout has not been built.
-	// */
-	// public int getLineCount() {
-	// return mLayout != null ? mLayout.getLineCount() : 0;
-	// }
 
 	private boolean isPositionVisible(int positionX, int positionY) {
 		synchronized (TEMP_POSITION) {
@@ -2746,13 +2937,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		return true;
 	}
 
-	/**
-	 * @return True iff this TextView contains a text that can be edited, or if this is a selectable TextView.
-	 */
-	boolean isTextEditable() {
-		return onCheckIsTextEditor() && true;
-	}
-
 	public boolean isTextSelectable() {
 		return mTextIsSelectable;
 	}
@@ -2791,8 +2975,8 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 			wantWidth = 0;
 		}
 
-		mLayout = new DynamicLayout(mText, mTransformed, mTextPaint, wantWidth, getLayoutAlignment(), mSpacingMult,
-				mSpacingAdd, mIncludePad);
+		mLayout = new DynamicLayout(mText, mTransformed, mTextPaint, wantWidth, Layout.Alignment.ALIGN_NORMAL,
+				mSpacingMult, mSpacingAdd, mIncludePad);
 
 		if (bringIntoView) {
 			registerForPreDraw();
@@ -2917,7 +3101,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	@Override
 	public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
 		if (onCheckIsTextEditor() && true) {
-			outAttrs.inputType = getInputType();
+			outAttrs.inputType = EditorInfo.TYPE_NULL;
 			outAttrs.imeOptions = mICT.imeOptions;
 			outAttrs.privateImeOptions = mICT.privateImeOptions;
 			outAttrs.actionLabel = mICT.imeActionLabel;
@@ -2939,7 +3123,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 					// to, so let's just supply a "done" action.
 					outAttrs.imeOptions |= EditorInfo.IME_ACTION_DONE;
 				}
-				if (!false) {
+				if (true) {
 					outAttrs.imeOptions |= EditorInfo.IME_FLAG_NO_ENTER_ACTION;
 				}
 			}
@@ -2948,10 +3132,10 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 			outAttrs.imeOptions |= EditorInfo.IME_FLAG_NO_ENTER_ACTION;
 			// }
 			outAttrs.hintText = null;
-			InputConnection ic = new EditableInputConnection(this);
+			InputConnection ic = new EditableInputConnection();
 			outAttrs.initialSelStart = getSelectionStart();
 			outAttrs.initialSelEnd = getSelectionEnd();
-			outAttrs.initialCapsMode = ic.getCursorCapsMode(getInputType());
+			outAttrs.initialCapsMode = ic.getCursorCapsMode(EditorInfo.TYPE_NULL);
 			return ic;
 		}
 		return null;
@@ -3130,41 +3314,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	}
 
 	/**
-	 * Called when an attached input method calls {@link InputConnection#performEditorAction(int)
-	 * InputConnection.performEditorAction()} for this text view. The default implementation will call your action
-	 * listener supplied to {@link #setOnEditorActionListener}, or perform a standard operation for
-	 * {@link EditorInfo#IME_ACTION_NEXT EditorInfo.IME_ACTION_NEXT}, {@link EditorInfo#IME_ACTION_PREVIOUS
-	 * EditorInfo.IME_ACTION_PREVIOUS}, or {@link EditorInfo#IME_ACTION_DONE EditorInfo.IME_ACTION_DONE}.
-	 * 
-	 * <p>
-	 * For backwards compatibility, if no IME options have been set and the text view would not normally advance focus
-	 * on enter, then the NEXT and DONE actions received here will be turned into an enter key down/up pair to go
-	 * through the normal key handling.
-	 * 
-	 * @param actionCode
-	 *            The code of the action being performed.
-	 * 
-	 * @see #setOnEditorActionListener
-	 */
-	public void onEditorAction(int actionCode) {
-		if (mICT.onEditorActionListener != null) {
-			if (mICT.onEditorActionListener.onEditorAction(this, actionCode, null)) {
-				return;
-			}
-		}
-		// ViewRootImpl viewRootImpl = getViewRootImpl();
-		// if (viewRootImpl != null) {
-		// long eventTime = SystemClock.uptimeMillis();
-		// viewRootImpl.dispatchKeyFromIme(new KeyEvent(eventTime, eventTime, KeyEvent.ACTION_DOWN,
-		// KeyEvent.KEYCODE_ENTER, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0, KeyEvent.FLAG_SOFT_KEYBOARD
-		// | KeyEvent.FLAG_KEEP_TOUCH_MODE | KeyEvent.FLAG_EDITOR_ACTION));
-		// viewRootImpl.dispatchKeyFromIme(new KeyEvent(SystemClock.uptimeMillis(), eventTime, KeyEvent.ACTION_UP,
-		// KeyEvent.KEYCODE_ENTER, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0, KeyEvent.FLAG_SOFT_KEYBOARD
-		// | KeyEvent.FLAG_KEEP_TOUCH_MODE | KeyEvent.FLAG_EDITOR_ACTION));
-		// }
-	}
-
-	/**
 	 * Called by the framework in response to a request to end a batch of edit operations through a call to link
 	 * {@link #endBatchEdit}.
 	 */
@@ -3276,18 +3425,11 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		KeyEvent up = KeyEvent.changeAction(event, KeyEvent.ACTION_UP);
 		if (which == 1) {
 			// mEditor and mInput are not null from doKeyDown
-			mKeyListener.onKeyUp(this, (Editable) mText, keyCode, up);
+			mKeyListener.onKeyUp(this, mText, keyCode, up);
 			while (--repeatCount > 0) {
-				mKeyListener.onKeyDown(this, (Editable) mText, keyCode, down);
-				mKeyListener.onKeyUp(this, (Editable) mText, keyCode, up);
+				mKeyListener.onKeyDown(this, mText, keyCode, down);
+				mKeyListener.onKeyUp(this, mText, keyCode, up);
 			}
-		} else if (which == 2) {
-			// null is not null from doKeyDown
-			// null.onKeyUp(this, (Spannable) mText, keyCode, up);
-			// while (--repeatCount > 0) {
-			// null.onKeyDown(this, (Spannable) mText, keyCode, down);
-			// null.onKeyUp(this, (Spannable) mText, keyCode, up);
-			// }
 		}
 
 		return true;
@@ -3382,7 +3524,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 			break;
 		}
 
-		if (mKeyListener.onKeyUp(this, (Editable) mText, keyCode, event))
+		if (mKeyListener.onKeyUp(this, mText, keyCode, event))
 			return true;
 
 		return super.onKeyUp(keyCode, event);
@@ -3535,16 +3677,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	}
 
 	@Override
-	public void onRtlPropertiesChanged(int layoutDirection) {
-		if (mLayoutAlignment != null) {
-			if (mResolvedTextAlignment == TEXT_ALIGNMENT_VIEW_START
-					|| mResolvedTextAlignment == TEXT_ALIGNMENT_VIEW_END) {
-				mLayoutAlignment = null;
-			}
-		}
-	}
-
-	@Override
 	public void onScreenStateChanged(int screenState) {
 		super.onScreenStateChanged(screenState);
 		// mEditor.onScreenStateChanged(screenState);
@@ -3652,7 +3784,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 			// }
 			// }
 
-			if (touchIsFinished && (isTextEditable() || textIsSelectable)) {
+			if (touchIsFinished) {
 				// Show the IME, except when selecting in read-only text.
 
 				viewClicked(mIMM);
@@ -3823,36 +3955,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		}
 	}
 
-	// Removes all spans that are inside or actually overlap the start..end range
-	@SuppressWarnings("unused")
-	private <T> void removeIntersectingSpans(int start, int end, Class<T> type) {
-		if (false)
-			return;
-		Editable text = (Editable) mText;
-
-		T[] spans = text.getSpans(start, end, type);
-		final int length = spans.length;
-		for (int i = 0; i < length; i++) {
-			final int s = text.getSpanStart(spans[i]);
-			final int e = text.getSpanEnd(spans[i]);
-			// Spans that are adjacent to the edited region will be handled in
-			// updateSpellCheckSpans. Result depends on what will be added (space or text)
-			if (e == start || s == end)
-				break;
-			text.removeSpan(spans[i]);
-		}
-	}
-
-	void removeMisspelledSpans(Spannable spannable) {
-		SuggestionSpan[] suggestionSpans = spannable.getSpans(0, spannable.length(), SuggestionSpan.class);
-		for (int i = 0; i < suggestionSpans.length; i++) {
-			int flags = suggestionSpans[i].getFlags();
-			if ((flags & SuggestionSpan.FLAG_EASY_CORRECT) != 0 && (flags & SuggestionSpan.FLAG_MISSPELLED) != 0) {
-				spannable.removeSpan(suggestionSpans[i]);
-			}
-		}
-	}
-
 	/**
 	 * Removes the specified TextWatcher from the list of those whose methods are called whenever this TextView's text
 	 * changes.
@@ -3873,7 +3975,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	 * @hide
 	 */
 	protected void replaceText_internal(int start, int end, CharSequence text) {
-		((Editable) mText).replace(start, end, text);
+		mText.replace(start, end, text);
 	}
 
 	private void resumeBlink() {
@@ -3941,7 +4043,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	 * @hide
 	 */
 	protected void setCursorPosition_internal(int start, int end) {
-		Selection.setSelection(((Editable) mText), start, end);
+		Selection.setSelection(mText, start, end);
 	}
 
 	/**
@@ -4009,55 +4111,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	}
 
 	/**
-	 * Apply to this text view the given extracted text, as previously returned by
-	 * {@link #extractText(ExtractedTextRequest, ExtractedText)}.
-	 */
-	public void setExtractedText(ExtractedText text) {
-		Editable content = getEditableText();
-		if (text.text != null) {
-			if (content == null) {
-				setText(text.text);
-			} else if (text.partialStartOffset < 0) {
-				content.replace(0, content.length(), text.text);
-			} else {
-				final int N = content.length();
-				int start = text.partialStartOffset;
-				if (start > N)
-					start = N;
-				int end = text.partialEndOffset;
-				if (end > N)
-					end = N;
-				content.replace(start, end, text.text);
-			}
-		}
-
-		// Now set the selection position... make sure it is in range, to
-		// avoid crashes. If this is a partial update, it is possible that
-		// the underlying text may have changed, causing us problems here.
-		// Also we just don't want to trust clients to do the right thing.
-		Spannable sp = (Spannable) getText();
-		final int N = sp.length();
-		int start = text.selectionStart;
-		if (start < 0)
-			start = 0;
-		else if (start > N)
-			start = N;
-		int end = text.selectionEnd;
-		if (end < 0)
-			end = 0;
-		else if (end > N)
-			end = N;
-		Selection.setSelection(sp, start, end);
-
-		// Finally, update the selection mode.
-		// if ((text.flags & ExtractedText.FLAG_SELECTING) != 0) {
-		// MetaKeyKeyListener.startSelecting(this, sp);
-		// } else {
-		// MetaKeyKeyListener.stopSelecting(this, sp);
-		// }
-	}
-
-	/**
 	 * @hide
 	 */
 	public void setExtracting(ExtractedTextRequest req) {
@@ -4091,7 +4144,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 		if (gravity != mGravity) {
 			invalidate();
-			mLayoutAlignment = null;
 		}
 
 		mGravity = gravity;
@@ -4447,25 +4499,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	}
 
 	/**
-	 * Set the TextView so that when it takes focus, all the text is selected.
-	 * 
-	 * @attr ref android.R.styleable#TextView_selectAllOnFocus
-	 */
-	public void setSelectAllOnFocus(boolean selectAllOnFocus) {
-		mSelectAllOnFocus = selectAllOnFocus;
-
-		if (selectAllOnFocus && !(mText instanceof Spannable)) {
-			setText(mText);
-		}
-	}
-
-	/**
 	 * Gives the text a shadow of the specified radius and color, the specified distance from its normal position.
-	 * 
-	 * @attr ref android.R.styleable#TextView_shadowColor
-	 * @attr ref android.R.styleable#TextView_shadowDx
-	 * @attr ref android.R.styleable#TextView_shadowDy
-	 * @attr ref android.R.styleable#TextView_shadowRadius
 	 */
 	public void setShadowLayer(float radius, float dx, float dy, int color) {
 		mTextPaint.setShadowLayer(radius, dx, dy, color);
@@ -4494,84 +4528,51 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	 * @hide
 	 */
 	protected void setSpan_internal(Object span, int start, int end, int flags) {
-		((Editable) mText).setSpan(span, start, end, flags);
+		mText.setSpan(span, start, end, flags);
 	}
 
-	/**
-	 * Sets the text that this TextView is to display (see {@link #setText(CharSequence)}) and also sets whether it is
-	 * stored in a styleable/spannable buffer and whether it is editable.
-	 * 
-	 * @attr ref android.R.styleable#TextView_text
-	 * @attr ref android.R.styleable#TextView_bufferType
-	 */
-	public void setText(CharSequence text) {
+	public void setText(Editable text) {
+		if (text == null)
+			return;
 		setText(text, true, 0);
 	}
 
-	private void setText(CharSequence text, boolean notifyBefore, int oldlen) {
-		if (text == null) {
-			text = "";
-		}
-		if (!mUserSetTextScaleX)
-			mTextPaint.setTextScaleX(1.0f);
-
+	private void setText(Editable text, boolean notifyBefore, int oldlen) {
+		assert text != null;
+		// if (true)
+		// mTextPaint.setTextScaleX(1.0f);
 		if (notifyBefore) {
-			if (mText != null) {
-				oldlen = mText.length();
-				sendBeforeTextChanged(mText, 0, oldlen, text.length());
-			} else {
-				sendBeforeTextChanged("", 0, 0, text.length());
-			}
+			sendBeforeTextChanged(mText, 0, mText.length(), text.length());
 		}
-
 		boolean needEditableForNotification = false;
-
 		if (mListeners != null && mListeners.size() != 0) {
 			needEditableForNotification = true;
 		}
-
-		if (getKeyListener() != null || needEditableForNotification) {
-			// TODO L.A.H. do not create new editable!
-			Editable t = mEditableFactory.newEditable(text);
-			text = t;
-			mIMM.restartInput(this);
-		}
-
+		// TODO L.A.H. do not create new editable!
+		mIMM.restartInput(this);
+		// TODO L.A.H. do a replace the content with the content of text, not simply set the value
+		// so client should do exactly one setText() then getText() and manipulate the resulting Editable
 		mText = text;
+		// mText.replace(0, mText.length(), text);
 		mTransformed = text;
-
 		final int textLength = text.length();
-
-		if (text instanceof Spannable /* && !mAllowTransformationLengthChange */) {
+		if (text instanceof Spannable) {
 			Spannable sp = (Spannable) text;
-
 			// Remove any ChangeWatchers that might have come from other TextViews.
 			final ChangeWatcher[] watchers = sp.getSpans(0, sp.length(), ChangeWatcher.class);
 			final int count = watchers.length;
 			for (int i = 0; i < count; i++) {
 				sp.removeSpan(watchers[i]);
 			}
-
-			if (mChangeWatcher == null)
-				mChangeWatcher = new ChangeWatcher();
-
 			sp.setSpan(mChangeWatcher, 0, textLength, Spanned.SPAN_INCLUSIVE_INCLUSIVE
 					| (CHANGE_WATCHER_PRIORITY << Spanned.SPAN_PRIORITY_SHIFT));
-
 			addSpanWatchers(sp);
-
-			// if (mTransformation != null) {
-			// sp.setSpan(mTransformation, 0, textLength, Spanned.SPAN_INCLUSIVE_INCLUSIVE);
-			// }
 		}
-
 		if (mLayout != null) {
 			checkForRelayout();
 		}
-
 		sendOnTextChanged(text, 0, oldlen, textLength);
 		onTextChanged(text, 0, oldlen, textLength);
-
 		if (needEditableForNotification) {
 			sendAfterTextChanged((Editable) text);
 		}
@@ -4604,22 +4605,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	public void setTextColor(int color) {
 		mTextColor = ColorStateList.valueOf(color);
 		updateTextColors();
-	}
-
-	/**
-	 * Sets the extent by which text should be stretched horizontally.
-	 */
-	public void setTextScaleX(float size) {
-		if (size != mTextPaint.getTextScaleX()) {
-			mUserSetTextScaleX = true;
-			mTextPaint.setTextScaleX(size);
-
-			if (mLayout != null) {
-				nullLayouts();
-				requestLayout();
-				invalidate();
-			}
-		}
 	}
 
 	public void setTextSize(float size) {
@@ -4703,11 +4688,8 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 	void spanChange(Spanned buf, Object what, int oldStart, int newStart, int oldEnd, int newEnd) {
 		// XXX Make the start and end move together if this ends up spending too much time invalidating.
-
 		boolean selChanged = false;
-
 		int newSelStart = -1, newSelEnd = -1;
-
 		if (what == Selection.SELECTION_END) {
 			selChanged = true;
 			newSelEnd = newStart;
@@ -4719,7 +4701,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 				makeBlink();
 			}
 		}
-
 		if (what == Selection.SELECTION_START) {
 			selChanged = true;
 			newSelStart = newStart;
@@ -4729,7 +4710,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 				invalidateCursor(end, oldStart, newStart);
 			}
 		}
-
 		if (selChanged) {
 			mHighlightPathBogus = true;
 			if (!isFocused())
@@ -4745,7 +4725,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 				// onSelectionChanged(newSelStart, newSelEnd);
 			}
 		}
-
 		if (what instanceof UpdateAppearance || what instanceof ParagraphStyle || what instanceof CharacterStyle) {
 			if (mIMS.mBatchEditNesting == 0) {
 				invalidate();
@@ -4755,7 +4734,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 				mIMS.mContentChanged = true;
 			}
 		}
-
 		if (MetaKeyKeyListener.isMetaTracker(buf, what)) {
 			mHighlightPathBogus = true;
 			if (MetaKeyKeyListener.isSelectingMetaTracker(buf, what)) {
@@ -4856,9 +4834,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		}
 	}
 
-	/**
-	 * @hide
-	 */
 	protected void viewClicked(InputMethodManager imm) {
 		if (imm != null) {
 			imm.viewClicked(this);
@@ -4876,4 +4851,5 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		}
 		return offset;
 	}
+
 }

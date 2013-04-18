@@ -16,10 +16,8 @@ import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
-import android.os.Bundle;
 import android.os.Handler;
 import android.os.SystemClock;
-import android.text.BoringLayout;
 import android.text.DynamicLayout;
 import android.text.Editable;
 import android.text.GetChars;
@@ -66,8 +64,16 @@ import android.widget.PopupWindow;
 import android.widget.RemoteViews.RemoteView;
 import android.widget.Scroller;
 
-@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
+/**
+ * Simple text editing widget
+ * 
+ * TODO Fix pressing space automatically scroll to the current line
+ * 
+ * @author L.A.H.
+ *
+ */
 @RemoteView
+@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
 public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener {
 
 	@SuppressLint("HandlerLeak")
@@ -495,15 +501,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		}
 
 		protected abstract void updateSelection(int offset);
-	}
-
-	public static class InputContentType {
-		boolean enterDown;
-		Bundle extras;
-		int imeActionId;
-		CharSequence imeActionLabel;
-		int imeOptions = EditorInfo.IME_NULL;
-		String privateImeOptions;
 	}
 
 	public static class InputMethodState {
@@ -987,8 +984,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 	private static final RectF TEMP_RECTF = new RectF();
 
-	private static final BoringLayout.Metrics UNKNOWN_BORING = new BoringLayout.Metrics();
-
 	// XXX should be much larger
 	private static final int VERY_WIDE = 1024 * 1024;
 
@@ -1029,8 +1024,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 	private Blink mBlink;
 
-	private BoringLayout.Metrics mBoring;
-
 	private final ChangeWatcher mChangeWatcher = new ChangeWatcher();
 
 	ClipboardManager mClipboard;
@@ -1053,8 +1046,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 	private boolean mDispatchTemporaryDetach;
 
-	boolean mFrozenWithFocus;
-
 	private int mGravity = Gravity.TOP | Gravity.START;
 
 	int mHighlightColor = 0x6633B5E5;
@@ -1066,8 +1057,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	private boolean mHighlightPathBogus = true;
 
 	private boolean mHorizontallyScrolling;
-
-	private final InputContentType mICT;
 
 	boolean mIgnoreActionUpEvent;
 
@@ -1091,7 +1080,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 	private long mLastScroll;
 
-	private Layout mLayout;
+	private DynamicLayout mLayout;
 
 	private ColorStateList mLinkTextColor;
 
@@ -1126,15 +1115,13 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 	private Scroller mScroller;
 
-	boolean mSelectAllOnFocus;
-
 	private Drawable mSelectHandleCenter;
 
 	boolean mSelectionMoved;
 
 	private float mShadowRadius, mShadowDx, mShadowDy;
 
-	long mShowCursor;
+	private long mShowCursor;
 
 	private boolean mTemporaryDetach;
 
@@ -1162,7 +1149,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		super(context, attrs);
 		mIMM = (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
 		mClipboard = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-		mICT = new InputContentType();
 		mIMS = new InputMethodState();
 		mTextPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
 		mTextPaint.density = getResources().getDisplayMetrics().density;
@@ -1177,25 +1163,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		// TODO L.A.H. Force testing code, should change accordingly
 		mCursorCount = 1;
 		mCursorDrawable[0] = getContext().getResources().getDrawable(R.drawable.text_select_handle_middle);
-	}
-
-	public void addSpanWatchers(Spannable text) {
-		text.setSpan(mKeyListener, 0, text.length(), Spanned.SPAN_INCLUSIVE_INCLUSIVE);
-	}
-
-	/**
-	 * Adds a TextWatcher to the list of those whose methods are called whenever this TextView's text changes.
-	 * <p>
-	 * In 1.0, the {@link TextWatcher#afterTextChanged} method was erroneously not called after {@link #setText} calls.
-	 * Now, doing {@link #setText} if there are any text changed listeners forces the buffer type to Editable if it
-	 * would not otherwise be and does call this method.
-	 */
-	public void addTextChangedListener(TextWatcher watcher) {
-		if (mListeners == null) {
-			mListeners = new ArrayList<TextWatcher>();
-		}
-
-		mListeners.add(watcher);
 	}
 
 	/**
@@ -2011,26 +1978,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	}
 
 	/**
-	 * Get the IME action ID previous set with {@link #setImeActionLabel}.
-	 * 
-	 * @see #setImeActionLabel
-	 * @see android.view.inputmethod.EditorInfo
-	 */
-	public int getImeActionId() {
-		return mICT.imeActionId;
-	}
-
-	/**
-	 * Get the IME action label previous set with {@link #setImeActionLabel}.
-	 * 
-	 * @see #setImeActionLabel
-	 * @see android.view.inputmethod.EditorInfo
-	 */
-	public CharSequence getImeActionLabel() {
-		return mICT.imeActionLabel;
-	}
-
-	/**
 	 * Gets whether the TextView includes extra top and bottom padding to make room for accents that go above the normal
 	 * ascent and descent.
 	 * 
@@ -2040,25 +1987,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	 */
 	public boolean getIncludeFontPadding() {
 		return mIncludePad;
-	}
-
-	/**
-	 * Retrieve the input extras currently associated with the text view, which can be viewed as well as modified.
-	 * 
-	 * @param create
-	 *            If true, the extras will be created if they don't already exist. Otherwise, null will be returned if
-	 *            none have been created.
-	 * @see #setInputExtras(int)
-	 * @see EditorInfo#extras
-	 * @attr ref android.R.styleable#TextView_editorExtras
-	 */
-	public Bundle getInputExtras(boolean create) {
-		if (mICT.extras == null) {
-			if (!create)
-				return null;
-			mICT.extras = new Bundle();
-		}
-		return mICT.extras;
 	}
 
 	private InsertionPointCursorController getInsertionController() {
@@ -2086,11 +2014,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 			r.top -= getExtendedPaddingTop();
 		if (line == mLayout.getLineCount() - 1)
 			r.bottom += getExtendedPaddingBottom();
-	}
-
-	private int getLastTapPosition() {
-		// No need to create the controller at that point, no last tap position saved
-		return -1;
 	}
 
 	/**
@@ -2895,12 +2818,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		// intentionally empty
 	}
 
-	@Override
-	public boolean onCheckIsTextEditor() {
-		// return EditorInfo.TYPE_NULL != EditorInfo.TYPE_NULL;
-		return true;
-	}
-
 	/**
 	 * Called by the framework in response to a text completion from the current input method, provided by it calling
 	 * {@link InputConnection#commitCompletion InputConnection.commitCompletion()}. The default implementation does
@@ -2915,45 +2832,13 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 	@Override
 	public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
-		if (onCheckIsTextEditor()) {
-			outAttrs.inputType = EditorInfo.TYPE_NULL;
-			outAttrs.imeOptions = mICT.imeOptions;
-			outAttrs.privateImeOptions = mICT.privateImeOptions;
-			outAttrs.actionLabel = mICT.imeActionLabel;
-			outAttrs.actionId = mICT.imeActionId;
-			outAttrs.extras = mICT.extras;
-			if (focusSearch(FOCUS_DOWN) != null) {
-				outAttrs.imeOptions |= EditorInfo.IME_FLAG_NAVIGATE_NEXT;
-			}
-			if (focusSearch(FOCUS_UP) != null) {
-				outAttrs.imeOptions |= EditorInfo.IME_FLAG_NAVIGATE_PREVIOUS;
-			}
-			// if ((outAttrs.imeOptions & EditorInfo.IME_MASK_ACTION) == EditorInfo.IME_ACTION_UNSPECIFIED) {
-			// if ((outAttrs.imeOptions & EditorInfo.IME_FLAG_NAVIGATE_NEXT) != 0) {
-			// // An action has not been set, but the enter key will move to
-			// // the next focus, so set the action to that.
-			// outAttrs.imeOptions |= EditorInfo.IME_ACTION_NEXT;
-			// } else {
-			// // An action has not been set, and there is no focus to move
-			// // to, so let's just supply a "done" action.
-			// outAttrs.imeOptions |= EditorInfo.IME_ACTION_DONE;
-			// }
-			// if (true) {
-			// outAttrs.imeOptions |= EditorInfo.IME_FLAG_NO_ENTER_ACTION;
-			// }
-			// }
-			// if (isMultilineInputType(outAttrs.inputType)) {
-			// Multi-line text editors should always show an enter key.
-			outAttrs.imeOptions |= EditorInfo.IME_FLAG_NO_ENTER_ACTION;
-			// }
-			outAttrs.hintText = null;
-			InputConnection ic = new EditableInputConnection();
-			outAttrs.initialSelStart = getSelectionStart();
-			outAttrs.initialSelEnd = getSelectionEnd();
-			// outAttrs.initialCapsMode = ic.getCursorCapsMode(EditorInfo.TYPE_NULL);
-			return ic;
-		}
-		return null;
+		outAttrs.inputType = EditorInfo.TYPE_NULL;
+		outAttrs.imeOptions |= EditorInfo.IME_FLAG_NO_ENTER_ACTION;
+		InputConnection ic = new EditableInputConnection();
+		outAttrs.initialSelStart = getSelectionStart();
+		outAttrs.initialSelEnd = getSelectionEnd();
+		// outAttrs.initialCapsMode = ic.getCursorCapsMode(EditorInfo.TYPE_NULL);
+		return ic;
 	}
 
 	@Override
@@ -3144,29 +3029,19 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		mTemporaryDetach = false;
 	}
 
-	void onFocusChanged(boolean focused, int direction) {
+	@Override
+	protected void onFocusChanged(boolean focused, int direction, Rect previouslyFocusedRect) {
+		if (mTemporaryDetach) {
+			// If we are temporarily in the detach state, then do nothing.
+			super.onFocusChanged(focused, direction, previouslyFocusedRect);
+			return;
+		}
+		// Copied from Editor.onFocusChanged
 		mShowCursor = SystemClock.uptimeMillis();
 		ensureEndedBatchEdit();
-
 		if (focused) {
-			int selStart = getSelectionStart();
-			int selEnd = getSelectionEnd();
-			if (!mFrozenWithFocus || (selStart < 0 || selEnd < 0)) {
-				// If a tap was used to give focus to that view, move cursor at tap position.
-				// Has to be done before onTakeFocus, which can be overloaded.
-				final int lastTapPosition = getLastTapPosition();
-				if (lastTapPosition >= 0) {
-					Selection.setSelection(getText(), lastTapPosition);
-				}
-				if (mSelectAllOnFocus) {
-					selectAllText();
-				}
-				mTouchFocusSelected = true;
-			}
-
-			mFrozenWithFocus = false;
+			mTouchFocusSelected = true;
 			mSelectionMoved = false;
-
 			makeBlink();
 		} else {
 			// Don't leave us in the middle of a batch edit.
@@ -3176,27 +3051,10 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 			hideControllers();
 			if (mTemporaryDetach)
 				mPreserveDetachedSelection = false;
-		}
-	}
-
-	@Override
-	protected void onFocusChanged(boolean focused, int direction, Rect previouslyFocusedRect) {
-		if (mTemporaryDetach) {
-			// If we are temporarily in the detach state, then do nothing.
-			super.onFocusChanged(focused, direction, previouslyFocusedRect);
-			return;
-		}
-
-		onFocusChanged(focused, direction);
-
+		} // End of Editor.onFocusChanged
 		if (focused) {
 			MetaKeyKeyListener.resetMetaState(mText);
 		}
-
-		// if (mTransformation != null) {
-		// mTransformation.onFocusChanged(this, mText, focused, direction, previouslyFocusedRect);
-		// }
-
 		super.onFocusChanged(focused, direction, previouslyFocusedRect);
 	}
 
@@ -3247,13 +3105,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 	@Override
 	public boolean onKeyUp(int keyCode, KeyEvent event) {
-		switch (keyCode) {
-		case KeyEvent.KEYCODE_ENTER:
-			if (event.hasNoModifiers()) {
-				return super.onKeyUp(keyCode, event);
-			}
-			break;
-		}
 		return mKeyListener.onKeyUp(this, mText, keyCode, event) || super.onKeyUp(keyCode, event);
 	}
 
@@ -3277,8 +3128,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		int width;
 		int height;
 
-		BoringLayout.Metrics boring = UNKNOWN_BORING;
-
 		int des = -1;
 		boolean fromexisting = false;
 
@@ -3291,22 +3140,22 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 			}
 
 			if (des < 0) {
-				boring = BoringLayout.isBoring(mTransformed, mTextPaint, mBoring);
-				if (boring != null) {
-					mBoring = boring;
-				}
+				// boring = BoringLayout.isBoring(mTransformed, mTextPaint, mBoring);
+				// if (boring != null) {
+				// mBoring = boring;
+				// }
 			} else {
 				fromexisting = true;
 			}
 
-			if (boring == null || boring == UNKNOWN_BORING) {
-				if (des < 0) {
-					des = (int) Math.ceil(Layout.getDesiredWidth(mTransformed, mTextPaint));
-				}
-				width = des;
-			} else {
-				width = boring.width;
+			// if (boring == null || boring == UNKNOWN_BORING) {
+			if (des < 0) {
+				des = (int) Math.ceil(Layout.getDesiredWidth(mTransformed, mTextPaint));
 			}
+			width = des;
+			// } else {
+			// width = boring.width;
+			// }
 
 			width += getCompoundPaddingLeft() + getCompoundPaddingRight();
 
@@ -3341,8 +3190,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		} else {
 			final boolean layoutChanged = (mLayout.getWidth() != want);
 
-			final boolean widthChanged = (want > mLayout.getWidth())
-					&& (mLayout instanceof BoringLayout || (fromexisting && des >= 0 && des <= want));
+			final boolean widthChanged = (want > mLayout.getWidth()) && (fromexisting && des >= 0 && des <= want);
 
 			final boolean maximumChanged = (mMaxMode != mOldMaxMode) || (mMaximum != mOldMaximum);
 
@@ -3363,10 +3211,8 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 			mDesiredHeightAtMeasure = -1;
 		} else {
 			int desired = getDesiredHeight();
-
 			height = desired;
 			mDesiredHeightAtMeasure = desired;
-
 			if (heightMode == MeasureSpec.AT_MOST) {
 				height = Math.min(desired, heightSize);
 			}
@@ -3484,7 +3330,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 		final boolean touchIsFinished = (action == MotionEvent.ACTION_UP) && (!mIgnoreActionUpEvent) && isFocused();
 
-		if ((onCheckIsTextEditor()) && mLayout != null) {
+		if (mLayout != null) {
 			boolean handled = false;
 
 			// if (false) {
@@ -3492,18 +3338,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 			// }
 
 			final boolean textIsSelectable = isTextSelectable();
-			// if (touchIsFinished && mLinksClickable && mAutoLinkMask != 0 && textIsSelectable) {
-			// // The LinkMovementMethod which should handle taps on links has not been installed
-			// // on non editable text that support text selection.
-			// // We reproduce its behavior here to open links for these.
-			// ClickableSpan[] links = (mText).getSpans(getSelectionStart(), getSelectionEnd(),
-			// ClickableSpan.class);
-			//
-			// if (links.length > 0) {
-			// links[0].onClick(this);
-			// handled = true;
-			// }
-			// }
 
 			if (touchIsFinished) {
 				// Show the IME, except when selecting in read-only text.
@@ -3515,7 +3349,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 				// The above condition ensures that the mEditor is not null
 				// mEditor.onTouchUpEvent(event);
-				boolean selectAllGotFocus = mSelectAllOnFocus && didTouchFocusSelect();
+				boolean selectAllGotFocus = false; // && didTouchFocusSelect();
 				hideControllers();
 				Editable text = getText();
 				if (!selectAllGotFocus && text.length() > 0) {
@@ -3549,8 +3383,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	@Override
 	public void onWindowFocusChanged(boolean hasWindowFocus) {
 		super.onWindowFocusChanged(hasWindowFocus);
-
-		// mEditor.onWindowFocusChanged(hasWindowFocus);
+		// Copied from Editor#onWindowFocusChanged(hasWindowFocus);
 		if (hasWindowFocus) {
 			if (mBlink != null) {
 				mBlink.uncancel();
@@ -3560,7 +3393,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 			if (mBlink != null) {
 				mBlink.cancel();
 			}
-			mICT.enterDown = false;
 			// Order matters! Must be done before onParentLostFocus to rely on isShowingUp
 			hideControllers();
 			// Don't leave us in the middle of a batch edit. Same as in onFocusChanged
@@ -4083,14 +3915,19 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		final int textLength = text.length();
 
 		// Remove any ChangeWatchers that might have come from other TextViews.
+		// TODO L.A.H. Make sure that this is absolutely unnecessary
 		final ChangeWatcher[] watchers = text.getSpans(0, text.length(), ChangeWatcher.class);
 		final int count = watchers.length;
 		for (int i = 0; i < count; i++) {
 			text.removeSpan(watchers[i]);
 		}
+
+		// And then set mChangeWatcher
 		text.setSpan(mChangeWatcher, 0, textLength, Spanned.SPAN_INCLUSIVE_INCLUSIVE
 				| (CHANGE_WATCHER_PRIORITY << Spanned.SPAN_PRIORITY_SHIFT));
-		addSpanWatchers(text);
+
+		// Add mKeyListener as span watcher to watch over text
+		text.setSpan(mKeyListener, 0, text.length(), Spanned.SPAN_INCLUSIVE_INCLUSIVE);
 
 		if (mLayout != null) {
 			checkForRelayout();

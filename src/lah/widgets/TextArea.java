@@ -19,7 +19,6 @@ import android.os.SystemClock;
 import android.text.DynamicLayout;
 import android.text.Editable;
 import android.text.GetChars;
-import android.text.InputType;
 import android.text.Layout;
 import android.text.Selection;
 import android.text.Spannable;
@@ -28,18 +27,14 @@ import android.text.Spanned;
 import android.text.SpannedString;
 import android.text.TextPaint;
 import android.text.TextWatcher;
-import android.text.method.BaseKeyListener;
-import android.text.method.KeyListener;
 import android.text.method.MetaKeyKeyListener;
 import android.text.style.CharacterStyle;
 import android.text.style.ParagraphStyle;
 import android.text.style.UpdateAppearance;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.util.TypedValue;
 import android.view.DragEvent;
 import android.view.Gravity;
-import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
@@ -51,7 +46,6 @@ import android.view.ViewTreeObserver;
 import android.view.WindowManager;
 import android.view.animation.AnimationUtils;
 import android.view.inputmethod.BaseInputConnection;
-import android.view.inputmethod.CompletionInfo;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
@@ -74,7 +68,7 @@ import android.widget.Scroller;
  */
 @RemoteView
 @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
-public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener {
+public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener, TextWatcher {
 
 	@SuppressLint("HandlerLeak")
 	public class Blink extends Handler implements Runnable {
@@ -131,12 +125,8 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 	class EditableInputConnection extends BaseInputConnection {
 
-		private static final boolean DEBUG = false;
-
-		private static final String TAG = "EditableInputConnection";
-
-		// Keeps track of nested begin/end batch edit to ensure this connection always has a
-		// balanced impact on its associated TextView.
+		// Keeps track of nested begin/end batch edit to ensure this connection always has a balanced impact on its
+		// associated TextView.
 		// A negative value means that this connection has been finished by the InputMethodManager.
 		private int mBatchEditNesting;
 
@@ -148,22 +138,11 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		public boolean beginBatchEdit() {
 			synchronized (this) {
 				if (mBatchEditNesting >= 0) {
-					TextArea.this.beginBatchEdit();
 					mBatchEditNesting++;
 					return true;
 				}
 			}
 			return false;
-		}
-
-		@Override
-		public boolean commitCompletion(CompletionInfo text) {
-			if (DEBUG)
-				Log.v(TAG, "commitCompletion " + text);
-			TextArea.this.beginBatchEdit();
-			TextArea.this.onCommitCompletion(text);
-			TextArea.this.endBatchEdit();
-			return true;
 		}
 
 		@Override
@@ -704,45 +683,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		}
 	}
 
-	static class QwertyKeyListener extends BaseKeyListener {
-
-		private static QwertyKeyListener sInstance;
-
-		public static QwertyKeyListener getInstance() {
-			if (sInstance == null)
-				sInstance = new QwertyKeyListener();
-			return sInstance;
-		}
-
-		@Override
-		public int getInputType() {
-			return InputType.TYPE_NULL;
-		};
-
-		@Override
-		public boolean onKeyDown(View view, Editable content, int keyCode, KeyEvent event) {
-			int selStart, selEnd;
-			int a = Selection.getSelectionStart(content);
-			int b = Selection.getSelectionEnd(content);
-			selStart = Math.min(a, b);
-			selEnd = Math.max(a, b);
-			if (selStart < 0 || selEnd < 0) {
-				selStart = selEnd = 0;
-				Selection.setSelection(content, 0, 0);
-			}
-			int i = event.getUnicodeChar(event.getMetaState() | getMetaState(content));
-			if (i != 0) {
-				if (selStart != selEnd) {
-					Selection.setSelection(content, selEnd);
-				}
-				content.replace(selStart, selEnd, String.valueOf((char) i));
-				selEnd = Selection.getSelectionEnd(content);
-				adjustMetaAfterKeypress(content);
-			}
-			return super.onKeyDown(view, content, keyCode, event);
-		}
-	}
-
 	public static class TextUtils {
 
 		private static Object sLock = new Object();
@@ -894,11 +834,11 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 	static final int BLINK = 500;
 
-	private static final int CHANGE_WATCHER_PRIORITY = 100;
+	// private static final int CHANGE_WATCHER_PRIORITY = 100;
 
-	static final boolean DEBUG_EXTRACT = false;
+	// static final boolean DEBUG_EXTRACT = false;
 
-	static final int EXTRACT_NOTHING = -2;
+	// static final int EXTRACT_NOTHING = -2;
 
 	static final int EXTRACT_UNKNOWN = -1;
 
@@ -952,20 +892,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 	private Blink mBlink;
 
-	private final TextWatcher mTextWatcher = new TextWatcher() {
-		public void afterTextChanged(Editable buffer) {
-		}
-
-		public void beforeTextChanged(CharSequence buffer, int start, int before, int after) {
-		}
-
-		public void onTextChanged(CharSequence buffer, int start, int before, int after) {
-			if (DEBUG_EXTRACT)
-				Log.v(LOG_TAG, "onTextChanged start=" + start + " before=" + before + " after=" + after + ": " + buffer);
-			handleTextChanged(buffer, start, before, after);
-		}
-	};
-
 	ClipboardManager mClipboard;
 
 	int mCursorCount; // Current number of used mCursorDrawable: 0 (resource=0), 1 or 2 (split)
@@ -1011,8 +937,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	private boolean mInsertionControllerEnabled;
 
 	InsertionPointCursorController mInsertionPointCursorController;
-
-	private final KeyListener mKeyListener = QwertyKeyListener.getInstance(); // = TextKeyListener.getInstance();
 
 	float mLastDownPositionX, mLastDownPositionY;
 
@@ -1081,7 +1005,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 	boolean mTouchFocusSelected;
 
-	private Editable mTransformed;
+	private Editable mTransformed = mText;
 
 	public TextArea(Context context, AttributeSet attrs) {
 		super(context, attrs);
@@ -1101,6 +1025,10 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		// TODO L.A.H. Force testing code, should change accordingly
 		mCursorCount = 1;
 		mCursorDrawable[0] = getContext().getResources().getDrawable(R.drawable.text_select_handle_middle);
+	}
+
+	@Override
+	public void afterTextChanged(Editable buffer) {
 	}
 
 	/**
@@ -1135,6 +1063,10 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		}
 
 		makeNewLayout(width, false);
+	}
+
+	@Override
+	public void beforeTextChanged(CharSequence buffer, int start, int before, int after) {
 	}
 
 	public void beginBatchEdit() {
@@ -1419,44 +1351,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	 */
 	public boolean didTouchFocusSelect() {
 		return mTouchFocusSelected;
-	}
-
-	private int doKeyDown(int keyCode, KeyEvent event, KeyEvent otherEvent) {
-		// switch (keyCode) {
-		// case KeyEvent.KEYCODE_ENTER:
-		// break;
-		//
-		// case KeyEvent.KEYCODE_DPAD_CENTER:
-		// break;
-
-		// case KeyEvent.KEYCODE_TAB:
-		// if (event.hasNoModifiers() || event.hasModifiers(KeyEvent.META_SHIFT_ON)) {
-		// }
-		// break;
-
-		// Has to be done on key down (and not on key up) to correctly be intercepted.
-		// case KeyEvent.KEYCODE_BACK:
-		// break;
-		// }
-
-		boolean doDown = true;
-		if (otherEvent != null) {
-			beginBatchEdit();
-			final boolean handled = mKeyListener.onKeyOther(this, mText, otherEvent);
-			doDown = false;
-			if (handled) {
-				return -1;
-			}
-			endBatchEdit();
-		}
-		if (doDown) {
-			beginBatchEdit();
-			final boolean handled = mKeyListener.onKeyDown(this, mText, keyCode, event);
-			endBatchEdit();
-			if (handled)
-				return 1;
-		}
-		return 0;
 	}
 
 	private void drawCursor(Canvas canvas, int cursorOffsetVertical) {
@@ -2279,26 +2173,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	}
 
 	/**
-	 * Not private so it can be called from an inner class without going through a thunk.
-	 */
-	void handleTextChanged(CharSequence buffer, int start, int before, int after) {
-		if (mIMS.mBatchEditNesting == 0) {
-			updateAfterEdit();
-		}
-		mIMS.mContentChanged = true;
-		if (mIMS.mChangedStart < 0) {
-			mIMS.mChangedStart = start;
-			mIMS.mChangedEnd = start + before;
-		} else {
-			mIMS.mChangedStart = Math.min(mIMS.mChangedStart, start);
-			mIMS.mChangedEnd = Math.max(mIMS.mChangedEnd, start + before - mIMS.mChangedDelta);
-		}
-		mIMS.mChangedDelta += after - before;
-		sendOnTextChanged(buffer, start, before, after);
-		onTextChanged(buffer, start, before, after);
-	}
-
-	/**
 	 * @return True if this view supports insertion handles.
 	 */
 	boolean hasInsertionController() {
@@ -2651,18 +2525,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		// intentionally empty
 	}
 
-	/**
-	 * Called by the framework in response to a text completion from the current input method, provided by it calling
-	 * {@link InputConnection#commitCompletion InputConnection.commitCompletion()}. The default implementation does
-	 * nothing; text views that are supporting auto-completion should override this to do their desired behavior.
-	 * 
-	 * @param text
-	 *            The auto complete text the user has selected.
-	 */
-	public void onCommitCompletion(CompletionInfo text) {
-		// intentionally empty
-	}
-
 	@Override
 	public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
 		outAttrs.inputType = EditorInfo.TYPE_NULL;
@@ -2837,7 +2699,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		}
 		// TODO L.A.H. Unfortunately, hardware acceleration is not publicly accessible
 		layout.draw(canvas, highlight, mHighlightPaint, cursorOffsetVertical);
-		
+
 		canvas.restore();
 	}
 
@@ -2886,56 +2748,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 			MetaKeyKeyListener.resetMetaState(mText);
 		}
 		super.onFocusChanged(focused, direction, previouslyFocusedRect);
-	}
-
-	@Override
-	public boolean onKeyDown(int keyCode, KeyEvent event) {
-		int which = doKeyDown(keyCode, event, null);
-		if (which == 0) {
-			// Go through default dispatching.
-			return super.onKeyDown(keyCode, event);
-		}
-
-		return true;
-	}
-
-	@Override
-	public boolean onKeyMultiple(int keyCode, int repeatCount, KeyEvent event) {
-		KeyEvent down = KeyEvent.changeAction(event, KeyEvent.ACTION_DOWN);
-
-		int which = doKeyDown(keyCode, down, event);
-		if (which == 0) {
-			// Go through default dispatching.
-			return super.onKeyMultiple(keyCode, repeatCount, event);
-		}
-		if (which == -1) {
-			// Consumed the whole thing.
-			return true;
-		}
-
-		repeatCount--;
-
-		// We are going to dispatch the remaining events to either the input
-		// or movement method. To do this, we will just send a repeated stream
-		// of down and up events until we have done the complete repeatCount.
-		// It would be nice if those interfaces had an onKeyMultiple() method,
-		// but adding that is a more complicated change.
-		KeyEvent up = KeyEvent.changeAction(event, KeyEvent.ACTION_UP);
-		if (which == 1) {
-			// mEditor and mInput are not null from doKeyDown
-			mKeyListener.onKeyUp(this, mText, keyCode, up);
-			while (--repeatCount > 0) {
-				mKeyListener.onKeyDown(this, mText, keyCode, down);
-				mKeyListener.onKeyUp(this, mText, keyCode, up);
-			}
-		}
-
-		return true;
-	}
-
-	@Override
-	public boolean onKeyUp(int keyCode, KeyEvent event) {
-		return mKeyListener.onKeyUp(this, mText, keyCode, event) || super.onKeyUp(keyCode, event);
 	}
 
 	@Override
@@ -3112,24 +2924,27 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		mTemporaryDetach = true;
 	}
 
-	/**
-	 * This method is called when the text is changed, in case any subclasses would like to know.
-	 * 
-	 * Within <code>text</code>, the <code>lengthAfter</code> characters beginning at <code>start</code> have just
-	 * replaced old text that had length <code>lengthBefore</code>. It is an error to attempt to make changes to
-	 * <code>text</code> from this callback.
-	 * 
-	 * @param text
-	 *            The text the TextView is displaying
-	 * @param start
-	 *            The offset of the start of the range of the text that was modified
-	 * @param lengthBefore
-	 *            The length of the former text that has been replaced
-	 * @param lengthAfter
-	 *            The length of the replacement modified text
-	 */
-	protected void onTextChanged(CharSequence text, int start, int lengthBefore, int lengthAfter) {
-		// intentionally empty, template pattern method can be overridden by subclasses
+	@Override
+	public void onTextChanged(CharSequence buffer, int start, int before, int after) {
+		// if (DEBUG_EXTRACT)
+		// Log.v(LOG_TAG, "onTextChanged start=" + start + " before=" + before + " after=" + after + ": " + buffer);
+		// inline from handleTextChanged(buffer, start, before, after);
+		invalidate();
+		hideCursorControllers();
+		if (mIMS.mBatchEditNesting == 0) {
+			updateAfterEdit();
+		}
+		mIMS.mContentChanged = true;
+		if (mIMS.mChangedStart < 0) {
+			mIMS.mChangedStart = start;
+			mIMS.mChangedEnd = start + before;
+		} else {
+			mIMS.mChangedStart = Math.min(mIMS.mChangedStart, start);
+			mIMS.mChangedEnd = Math.max(mIMS.mChangedEnd, start + before - mIMS.mChangedDelta);
+		}
+		mIMS.mChangedDelta += after - before;
+		// inline from sendOnTextChanged(buffer, start, before, after);
+		hideCursorControllers();
 	}
 
 	@Override
@@ -3162,11 +2977,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 		if (mLayout != null) {
 			boolean handled = false;
-
-			// if (false) {
-			// handled |= null.onTouchEvent(this, mText, event);
-			// }
-
 			final boolean textIsSelectable = isTextSelectable();
 
 			if (touchIsFinished) {
@@ -3179,10 +2989,9 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 				// The above condition ensures that the mEditor is not null
 				// mEditor.onTouchUpEvent(event);
-				boolean selectAllGotFocus = false; // && didTouchFocusSelect();
 				hideControllers();
 				Editable text = getText();
-				if (!selectAllGotFocus && text.length() > 0) {
+				if (text.length() > 0) {
 					// Move cursor
 					final int offset = getOffsetForPosition(event.getX(), event.getY());
 					Selection.setSelection(text, offset);
@@ -3323,13 +3132,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	}
 
 	void sendOnTextChanged(CharSequence text, int start, int before, int after) {
-		// if (null != null) {
-		// final ArrayList<TextWatcher> list = null;
-		// final int count = list.size();
-		// for (int i = 0; i < count; i++) {
-		// list.get(i).onTextChanged(text, start, before, after);
-		// }
-		// }
 		// mEditor.sendOnTextChanged(start, after);
 		// Hide the controllers as soon as text is modified (typing, procedural...)
 		// We do not hide the span controllers, since they can be added when a new text is
@@ -3684,9 +3486,11 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	}
 
 	public void setText(Editable text) {
+		// if (mText != null)
+		// throw new IllegalStateException("TextArea does not allow second invocation of setText."
+		// + " Editable's methods to manipulate the content.");
 		if (text == null)
 			return;
-		// TODO L.A.H. do not create new editable!
 		mIMM.restartInput(this);
 		// TODO L.A.H. do a replace the content with the content of text, not simply set the value
 		// so client should do exactly one setText() then getText() and manipulate the resulting Editable
@@ -3694,16 +3498,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		// mText.replace(0, mText.length(), text);
 		mTransformed = text;
 		final int textLength = text.length();
-		// Remove any TextWatchers that might have come from other views.
-		// TODO L.A.H. Make sure that this is absolutely unnecessary
-		final TextWatcher[] watchers = text.getSpans(0, text.length(), TextWatcher.class);
-		final int count = watchers.length;
-		for (int i = 0; i < count; i++) {
-			text.removeSpan(watchers[i]);
-		}
-		text.setSpan(mTextWatcher, 0, textLength, Spanned.SPAN_INCLUSIVE_INCLUSIVE
-				| (CHANGE_WATCHER_PRIORITY << Spanned.SPAN_PRIORITY_SHIFT));
-		text.setSpan(mKeyListener, 0, text.length(), Spanned.SPAN_INCLUSIVE_INCLUSIVE);
 		if (mLayout != null) {
 			checkForRelayout();
 		}
@@ -3875,13 +3669,10 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	void updateAfterEdit() {
 		invalidate();
 		int curs = getSelectionStart();
-
 		if (curs >= 0 || (mGravity & Gravity.VERTICAL_GRAVITY_MASK) == Gravity.BOTTOM) {
 			registerForPreDraw();
 		}
-
 		checkForResize();
-
 		if (curs >= 0) {
 			mHighlightPathBogus = true;
 			makeBlink();

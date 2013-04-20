@@ -19,6 +19,7 @@ import android.os.SystemClock;
 import android.text.DynamicLayout;
 import android.text.Editable;
 import android.text.GetChars;
+import android.text.InputType;
 import android.text.Layout;
 import android.text.Selection;
 import android.text.Spannable;
@@ -26,7 +27,6 @@ import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.SpannedString;
 import android.text.TextPaint;
-import android.text.TextWatcher;
 import android.text.method.MetaKeyKeyListener;
 import android.text.style.CharacterStyle;
 import android.text.style.ParagraphStyle;
@@ -47,8 +47,6 @@ import android.view.WindowManager;
 import android.view.animation.AnimationUtils;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.EditorInfo;
-import android.view.inputmethod.ExtractedText;
-import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.PopupWindow;
@@ -68,7 +66,7 @@ import android.widget.Scroller;
  */
 @RemoteView
 @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
-public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener, TextWatcher {
+public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener {
 
 	@SuppressLint("HandlerLeak")
 	public class Blink extends Handler implements Runnable {
@@ -106,28 +104,17 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	 * A CursorController instance can be used to control a cursor in the text.
 	 */
 	public interface CursorController extends ViewTreeObserver.OnTouchModeChangeListener {
-		/**
-		 * Hide the cursor controller from screen. See also {@link #show()}.
-		 */
 		public void hide();
 
-		/**
-		 * Called when the view is detached from window. Perform house keeping task, such as stopping Runnable thread
-		 * that would otherwise keep a reference on the context, thus preventing the activity from being recycled.
-		 */
 		public void onDetached();
 
-		/**
-		 * Makes the cursor controller visible on screen. See also {@link #hide()}.
-		 */
 		public void show();
 	}
 
-	class EditableInputConnection extends BaseInputConnection {
+	private class EditableInputConnection extends BaseInputConnection {
 
 		// Keeps track of nested begin/end batch edit to ensure this connection always has a balanced impact on its
-		// associated TextView.
-		// A negative value means that this connection has been finished by the InputMethodManager.
+		// associated TextView. A negative value means that this connection has been finished by the InputMethodManager.
 		private int mBatchEditNesting;
 
 		public EditableInputConnection() {
@@ -439,9 +426,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		boolean mContentChanged;
 		boolean mCursorChanged;
 		Rect mCursorRectInWindow = new Rect();
-		final ExtractedText mExtractedText = new ExtractedText();
-		ExtractedTextRequest mExtractedTextRequest;
-		boolean mSelectionModeChanged;
 		float[] mTmpOffset = new float[2];
 		RectF mTmpRectF = new RectF();
 	}
@@ -598,7 +582,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 	public class PositionListener implements ViewTreeObserver.OnPreDrawListener {
 		// 3 handles
-		// 3 ActionPopup [replace, suggestion, easyedit] (suggestionsPopup first hides the others)
 		private final int MAXIMUM_NUMBER_OF_LISTENERS = 6;
 		private boolean mCanMove[] = new boolean[MAXIMUM_NUMBER_OF_LISTENERS];
 		private int mNumberOfListeners;
@@ -1005,8 +988,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 	boolean mTouchFocusSelected;
 
-	private Editable mTransformed = mText;
-
 	public TextArea(Context context, AttributeSet attrs) {
 		super(context, attrs);
 		mIMM = (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
@@ -1025,10 +1006,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		// TODO L.A.H. Force testing code, should change accordingly
 		mCursorCount = 1;
 		mCursorDrawable[0] = getContext().getResources().getDrawable(R.drawable.text_select_handle_middle);
-	}
-
-	@Override
-	public void afterTextChanged(Editable buffer) {
 	}
 
 	/**
@@ -1063,10 +1040,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		}
 
 		makeNewLayout(width, false);
-	}
-
-	@Override
-	public void beforeTextChanged(CharSequence buffer, int start, int before, int after) {
 	}
 
 	public void beginBatchEdit() {
@@ -1381,7 +1354,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 	void finishBatchEdit(final InputMethodState ims) {
 		onEndBatchEdit();
-		if (ims.mContentChanged || ims.mSelectionModeChanged) {
+		if (ims.mContentChanged /* || ims.mSelectionModeChanged */) {
 			updateAfterEdit();
 			// reportExtractedText();
 		} else if (ims.mCursorChanged) {
@@ -2097,7 +2070,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	}
 
 	CharSequence getTransformedText(int start, int end) {
-		return mTransformed.subSequence(start, end);
+		return mText.subSequence(start, end);
 	}
 
 	public Typeface getTypeface() {
@@ -2204,6 +2177,14 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		if (mInsertionPointCursorController != null) {
 			mInsertionPointCursorController.hide();
 		}
+	}
+
+	public void insertAtCursor(CharSequence content) {
+		if (content == null)
+			return;
+		int cursor_pos = getSelectionStart();
+		mText.replace(cursor_pos, cursor_pos, content);
+		updateAfterEdit();
 	}
 
 	void invalidateCursor() {
@@ -2423,8 +2404,8 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 			wantWidth = 0;
 		}
 
-		mLayout = new DynamicLayout(mText, mTransformed, mTextPaint, wantWidth, Layout.Alignment.ALIGN_NORMAL, 1.0f,
-				0.0f, mIncludePad);
+		mLayout = new DynamicLayout(mText, mTextPaint, wantWidth, Layout.Alignment.ALIGN_NORMAL, 1.0f, 0.0f,
+				mIncludePad);
 
 		if (bringIntoView) {
 			registerForPreDraw();
@@ -2527,13 +2508,11 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 	@Override
 	public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
-		outAttrs.inputType = EditorInfo.TYPE_NULL;
+		outAttrs.inputType = InputType.TYPE_NULL;
 		outAttrs.imeOptions |= EditorInfo.IME_FLAG_NO_ENTER_ACTION;
-		InputConnection ic = new EditableInputConnection();
 		outAttrs.initialSelStart = getSelectionStart();
 		outAttrs.initialSelEnd = getSelectionEnd();
-		// outAttrs.initialCapsMode = ic.getCursorCapsMode(EditorInfo.TYPE_NULL);
-		return ic;
+		return new EditableInputConnection();
 	}
 
 	@Override
@@ -2658,12 +2637,12 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		if (mIMS.mBatchEditNesting == 0) {
 			if (mIMM.isActive(this)) {
 				boolean reported = false;
-				if (mIMS.mContentChanged || mIMS.mSelectionModeChanged) {
-					// We are in extract mode and the content has changed
-					// in some way... just report complete new text to the
-					// input method.
-					// reported = reportExtractedText();
-				}
+				// if (mIMS.mContentChanged || mIMS.mSelectionModeChanged) {
+				// // We are in extract mode and the content has changed
+				// // in some way... just report complete new text to the
+				// // input method.
+				// // reported = reportExtractedText();
+				// }
 				if (!reported && highlight != null) {
 					int candStart = -1;
 					int candEnd = -1;
@@ -2782,7 +2761,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 			}
 
 			if (des < 0) {
-				// boring = BoringLayout.isBoring(mTransformed, mTextPaint, mBoring);
+				// boring = BoringLayout.isBoring(mText, mTextPaint, mBoring);
 				// if (boring != null) {
 				// mBoring = boring;
 				// }
@@ -2792,7 +2771,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 			// if (boring == null || boring == UNKNOWN_BORING) {
 			if (des < 0) {
-				des = (int) Math.ceil(Layout.getDesiredWidth(mTransformed, mTextPaint));
+				des = (int) Math.ceil(Layout.getDesiredWidth(mText, mTextPaint));
 			}
 			width = des;
 			// } else {
@@ -2924,12 +2903,12 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		mTemporaryDetach = true;
 	}
 
-	@Override
 	public void onTextChanged(CharSequence buffer, int start, int before, int after) {
 		// if (DEBUG_EXTRACT)
 		// Log.v(LOG_TAG, "onTextChanged start=" + start + " before=" + before + " after=" + after + ": " + buffer);
 		// inline from handleTextChanged(buffer, start, before, after);
-		invalidate();
+		// invalidate();
+		updateAfterEdit();
 		hideCursorControllers();
 		if (mIMS.mBatchEditNesting == 0) {
 			updateAfterEdit();
@@ -3069,7 +3048,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	long prepareSpacesAroundPaste(int min, int max, CharSequence paste) {
 		if (paste.length() > 0) {
 			if (min > 0) {
-				final char charBefore = mTransformed.charAt(min - 1);
+				final char charBefore = mText.charAt(min - 1);
 				final char charAfter = paste.charAt(0);
 
 				if (Character.isSpaceChar(charBefore) && Character.isSpaceChar(charAfter)) {
@@ -3095,7 +3074,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 
 			if (max < mText.length()) {
 				final char charBefore = paste.charAt(paste.length() - 1);
-				final char charAfter = mTransformed.charAt(max);
+				final char charAfter = mText.charAt(max);
 
 				if (Character.isSpaceChar(charBefore) && Character.isSpaceChar(charAfter)) {
 					// Two spaces at end of paste: remove one
@@ -3198,17 +3177,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	}
 
 	/**
-	 * @hide
-	 */
-	public void setExtracting(ExtractedTextRequest req) {
-		mIMS.mExtractedTextRequest = req;
-		// This would stop a possible selection mode, but no such mode is started in case
-		// extracted mode will start. Some text is selected though, and will trigger an action mode
-		// in the extracted view.
-		hideControllers();
-	}
-
-	/**
 	 * Sets the horizontal alignment of the text and the vertical gravity that will be used when there is extra space in
 	 * the TextView beyond what is required for the text itself.
 	 * 
@@ -3308,108 +3276,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 	public void setLines(int lines) {
 		mMaximum = mMinimum = lines;
 		mMaxMode = mMinMode = LINES;
-
-		requestLayout();
-		invalidate();
-	}
-
-	/**
-	 * Makes the TextView at most this many ems wide
-	 * 
-	 * @attr ref android.R.styleable#TextView_maxEms
-	 */
-	public void setMaxEms(int maxems) {
-		mMaxWidth = maxems;
-		mMaxWidthMode = EMS;
-
-		requestLayout();
-		invalidate();
-	}
-
-	/**
-	 * Makes the TextView at most this many pixels tall. This option is mutually exclusive with the
-	 * {@link #setMaxLines(int)} method.
-	 * 
-	 * Setting this value overrides any other (maximum) number of lines setting.
-	 */
-	public void setMaxHeight(int maxHeight) {
-		mMaximum = maxHeight;
-		mMaxMode = PIXELS;
-
-		requestLayout();
-		invalidate();
-	}
-
-	/**
-	 * Makes the TextView at most this many lines tall.
-	 * 
-	 * Setting this value overrides any other (maximum) height setting.
-	 */
-	public void setMaxLines(int maxlines) {
-		mMaximum = maxlines;
-		mMaxMode = LINES;
-
-		requestLayout();
-		invalidate();
-	}
-
-	/**
-	 * Makes the TextView at most this many pixels wide
-	 */
-	public void setMaxWidth(int maxpixels) {
-		mMaxWidth = maxpixels;
-		mMaxWidthMode = PIXELS;
-
-		requestLayout();
-		invalidate();
-	}
-
-	/**
-	 * Makes the TextView at least this many ems wide
-	 */
-	public void setMinEms(int minems) {
-		mMinWidth = minems;
-		mMinWidthMode = EMS;
-
-		requestLayout();
-		invalidate();
-	}
-
-	/**
-	 * Makes the TextView at least this many pixels tall.
-	 * 
-	 * Setting this value overrides any other (minimum) number of lines setting.
-	 */
-	public void setMinHeight(int minHeight) {
-		mMinimum = minHeight;
-		mMinMode = PIXELS;
-
-		requestLayout();
-		invalidate();
-	}
-
-	/**
-	 * Makes the TextView at least this many lines tall.
-	 * 
-	 * Setting this value overrides any other (minimum) height setting. A single line TextView will set this value to 1.
-	 * 
-	 * @see #getMinLines()
-	 */
-	public void setMinLines(int minlines) {
-		mMinimum = minlines;
-		mMinMode = LINES;
-
-		requestLayout();
-		invalidate();
-	}
-
-	/**
-	 * Makes the TextView at least this many pixels wide
-	 */
-	public void setMinWidth(int minpixels) {
-		mMinWidth = minpixels;
-		mMinWidthMode = PIXELS;
-
 		requestLayout();
 		invalidate();
 	}
@@ -3496,7 +3362,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		// so client should do exactly one setText() then getText() and manipulate the resulting Editable
 		mText = text;
 		// mText.replace(0, mText.length(), text);
-		mTransformed = text;
 		final int textLength = text.length();
 		if (mLayout != null) {
 			checkForRelayout();
@@ -3596,7 +3461,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		return start == end;
 	}
 
-	void spanChange(Spanned buf, Object what, int oldStart, int newStart, int oldEnd, int newEnd) {
+	public void onSpanChanged(Spanned buf, Object what, int oldStart, int newStart, int oldEnd, int newEnd) {
 		// XXX Make the start and end move together if this ends up spending too much time invalidating.
 		boolean selChanged = false;
 		int newSelStart = -1, newSelEnd = -1;
@@ -3646,10 +3511,9 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		}
 		if (MetaKeyKeyListener.isMetaTracker(buf, what)) {
 			mHighlightPathBogus = true;
-			if (MetaKeyKeyListener.isSelectingMetaTracker(buf, what)) {
-				mIMS.mSelectionModeChanged = true;
-			}
-
+			// if (MetaKeyKeyListener.isSelectingMetaTracker(buf, what)) {
+			// mIMS.mSelectionModeChanged = true;
+			// }
 			if (Selection.getSelectionStart(buf) >= 0) {
 				if (mIMS.mBatchEditNesting == 0) {
 					invalidateCursor();

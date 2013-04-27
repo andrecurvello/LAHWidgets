@@ -27,6 +27,7 @@ import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.SpannedString;
 import android.text.TextPaint;
+import android.text.TextWatcher;
 import android.text.method.MetaKeyKeyListener;
 import android.text.style.CharacterStyle;
 import android.text.style.ParagraphStyle;
@@ -66,7 +67,7 @@ import android.widget.Scroller;
  */
 @RemoteView
 @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
-public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener {
+public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener, TextWatcher {
 
 	@SuppressLint("HandlerLeak")
 	public class Blink extends Handler implements Runnable {
@@ -2179,14 +2180,6 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		}
 	}
 
-	public void insertAtCursor(CharSequence content) {
-		if (content == null)
-			return;
-		int cursor_pos = getSelectionStart();
-		mText.replace(cursor_pos, cursor_pos, content);
-		updateAfterEdit();
-	}
-
 	void invalidateCursor() {
 		int where = getSelectionEnd();
 		invalidateCursor(where, where, where);
@@ -3362,6 +3355,7 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 		// so client should do exactly one setText() then getText() and manipulate the resulting Editable
 		mText = text;
 		// mText.replace(0, mText.length(), text);
+		mText.setSpan(this, 0, mText.length(), Spanned.SPAN_INCLUSIVE_INCLUSIVE);
 		final int textLength = text.length();
 		if (mLayout != null) {
 			checkForRelayout();
@@ -3621,6 +3615,14 @@ public class TextArea extends View implements ViewTreeObserver.OnPreDrawListener
 			offset += getVerticalOffset(false);
 		}
 		return offset;
+	}
+
+	@Override
+	public void afterTextChanged(Editable arg0) {
+	}
+
+	@Override
+	public void beforeTextChanged(CharSequence arg0, int arg1, int arg2, int arg3) {
 	}
 
 }

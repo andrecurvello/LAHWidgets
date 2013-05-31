@@ -9,9 +9,11 @@ import android.view.ScaleGestureDetector;
 import android.view.View;
 
 /**
- * Abstract class to display a group of views, allow for zooming and navigation. This class maintains the logical
- * geometry information for views (extending this class) to make use when rendering themselves from user interactions
- * such as pinch-to-zoom or tap-and-move gestures.
+ * Abstract class to display a large (potentially infinite) rectangular view which can be zoom in/out (via pinch
+ * gesture) and navigate (via tap-and-drag gesture). Example usecases are a map view or a PDF document view.
+ * 
+ * This abstract class only maintains the <b>logically local/relative</b> geometry information which views extending
+ * this class can make use of when performing the rendering. At the basic, this view maintains how a viewport changes.
  * 
  * @author L.A.H.
  * 
@@ -20,7 +22,7 @@ public abstract class AbstractZoomableScrollView extends View {
 
 	private static final boolean DEBUG = false;
 
-	private static final String TAG = "AbstractZoomableScrollView";
+	private static final String TAG = "Abstract Zoomable Scroll View";
 
 	private GestureDetector common_gesture_detector;
 
@@ -29,11 +31,17 @@ public abstract class AbstractZoomableScrollView extends View {
 	private ScaleGestureDetector scale_gesture_detector;
 
 	/**
-	 * Current zoom factor of this view
+	 * Viewport left-top position, the viewport's width and height are obtained from the view's available methods
+	 * (namely, {@link #getWidth()} and {@link #getHeight()} respectively).
 	 */
-	private float zoom_factor;
+	protected float viewport_X, viewport_Y;
 
-	float zoom_in_threshold = 1.25f, zoom_out_threshold = 1.0f / zoom_in_threshold;
+	/**
+	 * Current zoom factor of this view, initialize to 1.0f
+	 */
+	protected float zoom_factor = 1.0f;
+
+	protected float zoom_in_threshold = 1.25f, zoom_out_threshold = 1.0f / zoom_in_threshold;
 
 	public AbstractZoomableScrollView(Context context) {
 		super(context);
@@ -50,14 +58,23 @@ public abstract class AbstractZoomableScrollView extends View {
 		init();
 	}
 
-	protected float getCurrentScaleFactor() {
+	protected float getViewportX() {
+		return viewport_X;
+	}
+
+	protected float getViewportY() {
+		return viewport_Y;
+	}
+
+	protected float getZoomFactor() {
 		return zoom_factor;
 	}
 
 	void init() {
 		common_gesture_detector = new GestureDetector(getContext(), new ZSVGGestureListener());
 		scale_gesture_detector = new ScaleGestureDetector(getContext(), new ZSVGScaleGestureListener());
-
+		viewport_X = viewport_Y = 0.0f;
+		zoom_factor = 1.0f;
 	}
 
 	protected boolean isZooming() {
@@ -72,14 +89,6 @@ public abstract class AbstractZoomableScrollView extends View {
 			if (DEBUG)
 				Log.v(TAG, "Scale detector consumes event " + ev);
 		return common_gesture_detector.onTouchEvent(ev);
-	}
-
-	public void onZoom() {
-		invalidate();
-	}
-
-	protected void reset() {
-		zoom_factor = 1.0f;
 	}
 
 	class ZSVGGestureListener implements GestureDetector.OnGestureListener {
@@ -109,7 +118,11 @@ public abstract class AbstractZoomableScrollView extends View {
 			if (DEBUG)
 				Log.v(TAG, "onScroll");
 			if (Math.abs(distanceX) + Math.abs(distanceY) > 20) {
-				scrollBy((int) distanceX, (int) distanceY);
+				setViewportX(viewport_X + distanceX);
+				setViewportY(viewport_Y + distanceY);
+				if (getParent() instanceof View)
+					((View) getParent()).invalidate();
+				invalidate();
 				return true;
 			}
 			return false;
@@ -129,6 +142,22 @@ public abstract class AbstractZoomableScrollView extends View {
 		}
 	}
 
+	protected void setViewportX(float x) {
+		viewport_X = x;
+		if (viewport_X < 0)
+			viewport_X = 0;
+	}
+
+	protected void setViewportY(float y) {
+		viewport_Y = y;
+		if (viewport_Y < 0)
+			viewport_Y = 0;
+	}
+
+	protected void setZoomFactor(float zf) {
+		zoom_factor = zf;
+	}
+
 	class ZSVGScaleGestureListener implements ScaleGestureDetector.OnScaleGestureListener {
 
 		@Override
@@ -136,10 +165,10 @@ public abstract class AbstractZoomableScrollView extends View {
 			if (DEBUG)
 				Log.v(TAG, "onScale");
 			if (detector.getScaleFactor() >= zoom_in_threshold || detector.getScaleFactor() <= zoom_out_threshold) {
-				// setScaleX(detector.getScaleFactor());
-				// setScaleY(detector.getScaleFactor());
-				// zoom_factor = zoom_factor * detector.getScaleFactor();
-				onZoom();
+				zoom_factor *= detector.getScaleFactor();
+				if (getParent() instanceof View)
+					((View) getParent()).invalidate();
+				invalidate();
 				return true;
 			} else
 				return false;
@@ -147,17 +176,17 @@ public abstract class AbstractZoomableScrollView extends View {
 
 		@Override
 		public boolean onScaleBegin(ScaleGestureDetector detector) {
-			is_zooming = true;
 			if (DEBUG)
 				Log.v(TAG, "onScaleBegin");
+			is_zooming = true;
 			return true;
 		}
 
 		@Override
 		public void onScaleEnd(ScaleGestureDetector detector) {
-			is_zooming = false;
 			if (DEBUG)
 				Log.v(TAG, "onScaleEnd");
+			is_zooming = false;
 		}
 	}
 

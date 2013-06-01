@@ -18,7 +18,8 @@ import android.view.View;
  * @author L.A.H.
  * 
  */
-public abstract class AbstractZoomableScrollView extends View {
+public abstract class AbstractZoomableScrollView extends View implements GestureDetector.OnGestureListener,
+		ScaleGestureDetector.OnScaleGestureListener {
 
 	private static final boolean DEBUG = false;
 
@@ -71,14 +72,93 @@ public abstract class AbstractZoomableScrollView extends View {
 	}
 
 	void init() {
-		common_gesture_detector = new GestureDetector(getContext(), new ZSVGGestureListener());
-		scale_gesture_detector = new ScaleGestureDetector(getContext(), new ZSVGScaleGestureListener());
+		common_gesture_detector = new GestureDetector(getContext(), this);
+		scale_gesture_detector = new ScaleGestureDetector(getContext(), this);
 		viewport_X = viewport_Y = 0.0f;
 		zoom_factor = 1.0f;
 	}
 
 	protected boolean isZooming() {
 		return is_zooming;
+	}
+
+	@Override
+	public final boolean onDown(MotionEvent e) {
+		if (DEBUG)
+			Log.v(TAG, "onDown");
+		return true;
+	}
+
+	@Override
+	public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+		if (DEBUG)
+			Log.v(TAG, "onFling");
+		return true;
+	}
+
+	@Override
+	public void onLongPress(MotionEvent e) {
+		if (DEBUG)
+			Log.v(TAG, "onLongPress");
+	}
+
+	@Override
+	public boolean onScale(ScaleGestureDetector detector) {
+		if (DEBUG)
+			Log.v(TAG, "onScale");
+		if (detector.getScaleFactor() >= zoom_in_threshold || detector.getScaleFactor() <= zoom_out_threshold) {
+			zoom_factor *= detector.getScaleFactor();
+			if (getParent() instanceof View)
+				((View) getParent()).invalidate();
+			else
+				invalidate();
+			return true;
+		} else
+			return false;
+	}
+
+	@Override
+	public boolean onScaleBegin(ScaleGestureDetector detector) {
+		if (DEBUG)
+			Log.v(TAG, "onScaleBegin");
+		is_zooming = true;
+		return true;
+	}
+
+	@Override
+	public void onScaleEnd(ScaleGestureDetector detector) {
+		if (DEBUG)
+			Log.v(TAG, "onScaleEnd");
+		is_zooming = false;
+	}
+
+	@Override
+	public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+		if (DEBUG)
+			Log.v(TAG, "onScroll");
+		if (Math.abs(distanceX) + Math.abs(distanceY) > 20) {
+			setViewportX(viewport_X + distanceX);
+			setViewportY(viewport_Y + distanceY);
+			if (getParent() instanceof View)
+				((View) getParent()).invalidate();
+			else
+				invalidate();
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	public void onShowPress(MotionEvent e) {
+		if (DEBUG)
+			Log.v(TAG, "onShowPress");
+	}
+
+	@Override
+	public boolean onSingleTapUp(MotionEvent e) {
+		if (DEBUG)
+			Log.v(TAG, "onSingleTapUp");
+		return true;
 	}
 
 	@Override
@@ -89,57 +169,6 @@ public abstract class AbstractZoomableScrollView extends View {
 			if (DEBUG)
 				Log.v(TAG, "Scale detector consumes event " + ev);
 		return common_gesture_detector.onTouchEvent(ev);
-	}
-
-	class ZSVGGestureListener implements GestureDetector.OnGestureListener {
-
-		@Override
-		public boolean onDown(MotionEvent e) {
-			if (DEBUG)
-				Log.v(TAG, "onDown");
-			return true;
-		}
-
-		@Override
-		public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-			if (DEBUG)
-				Log.v(TAG, "onFling");
-			return true;
-		}
-
-		@Override
-		public void onLongPress(MotionEvent e) {
-			if (DEBUG)
-				Log.v(TAG, "onLongPress");
-		}
-
-		@Override
-		public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-			if (DEBUG)
-				Log.v(TAG, "onScroll");
-			if (Math.abs(distanceX) + Math.abs(distanceY) > 20) {
-				setViewportX(viewport_X + distanceX);
-				setViewportY(viewport_Y + distanceY);
-				if (getParent() instanceof View)
-					((View) getParent()).invalidate();
-				invalidate();
-				return true;
-			}
-			return false;
-		}
-
-		@Override
-		public void onShowPress(MotionEvent e) {
-			if (DEBUG)
-				Log.v(TAG, "onShowPress");
-		}
-
-		@Override
-		public boolean onSingleTapUp(MotionEvent e) {
-			if (DEBUG)
-				Log.v(TAG, "onSingleTapUp");
-			return true;
-		}
 	}
 
 	protected void setViewportX(float x) {
@@ -156,38 +185,6 @@ public abstract class AbstractZoomableScrollView extends View {
 
 	protected void setZoomFactor(float zf) {
 		zoom_factor = zf;
-	}
-
-	class ZSVGScaleGestureListener implements ScaleGestureDetector.OnScaleGestureListener {
-
-		@Override
-		public boolean onScale(ScaleGestureDetector detector) {
-			if (DEBUG)
-				Log.v(TAG, "onScale");
-			if (detector.getScaleFactor() >= zoom_in_threshold || detector.getScaleFactor() <= zoom_out_threshold) {
-				zoom_factor *= detector.getScaleFactor();
-				if (getParent() instanceof View)
-					((View) getParent()).invalidate();
-				invalidate();
-				return true;
-			} else
-				return false;
-		}
-
-		@Override
-		public boolean onScaleBegin(ScaleGestureDetector detector) {
-			if (DEBUG)
-				Log.v(TAG, "onScaleBegin");
-			is_zooming = true;
-			return true;
-		}
-
-		@Override
-		public void onScaleEnd(ScaleGestureDetector detector) {
-			if (DEBUG)
-				Log.v(TAG, "onScaleEnd");
-			is_zooming = false;
-		}
 	}
 
 }

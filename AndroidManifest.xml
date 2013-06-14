@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="lah.widgets"
     android:versionCode="1"
@@ -9,6 +10,10 @@
 
     <application>
         <activity android:name="lah.widgets.activities.MultipleSelectListActivity" >
+        </activity>
+        <activity
+            android:name="lah.widgets.UniversalHierarchicalBrowsingActivity"
+            android:label="@string/title_activity_universal_hierarchical_browsing" >
         </activity>
     </application>
 

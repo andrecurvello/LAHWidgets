@@ -5,8 +5,12 @@
     <string name="action_save">Save</string>
     <string name="action_select_all">Select All</string>
     <string name="action_select_none">None</string>
-    <string name="action_cancel">Cancel</string>
     <string name="action_up">Up</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_done">Done</string>
     <string name="action_select">Select</string>
+    <string name="title_activity_universal_hierarchical_browsing">Browse</string>
+    <string name="action_settings">Settings</string>
+    <string name="hello_world">Hello world!</string>
 
 </resources>

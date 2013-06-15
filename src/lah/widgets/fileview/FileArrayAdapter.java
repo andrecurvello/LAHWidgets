@@ -89,13 +89,18 @@ public class FileArrayAdapter extends ArrayAdapter<File> {
 
 	@Override
 	public View getView(int position, View convertView, ViewGroup parent) {
-		Context context = parent.getContext();
+		TextView f_view;
+		if (convertView instanceof TextView) {
+			f_view = (TextView) convertView;
+		} else {
+			Context context = parent.getContext();
+			f_view = new TextView(context);
+		}
 		File f = getItem(position); // get file at indicated position
-		TextView f_view = new TextView(context);
 		f_view.setGravity(Gravity.CENTER_VERTICAL);
 		f_view.setCompoundDrawables(f.isDirectory() ? ic_directory : ic_file, null, null, null);
 		f_view.setText(f.getName());
-		f_view.setTextAppearance(getContext(), android.R.style.TextAppearance_Medium);
+		f_view.setTextAppearance(getContext(), android.R.style.TextAppearance_Medium_Inverse);
 		return f_view;
 	}
 

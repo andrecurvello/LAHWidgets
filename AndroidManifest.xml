@@ -11,10 +11,6 @@
     <application>
         <activity android:name="lah.widgets.activities.MultipleSelectListActivity" >
         </activity>
-        <activity
-            android:name="lah.widgets.UniversalHierarchicalBrowsingActivity"
-            android:label="@string/title_activity_universal_hierarchical_browsing" >
-        </activity>
     </application>
 
 </manifest>

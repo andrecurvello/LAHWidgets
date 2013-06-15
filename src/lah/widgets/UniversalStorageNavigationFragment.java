@@ -27,23 +27,29 @@ public class UniversalStorageNavigationFragment extends Fragment implements View
 
 	ImageButton button_create;
 
+	public IFileSelectListener file_listener;
+
+	public String initial_file;
+
 	GridView object_listview;
 
 	public UniversalStorageNavigationFragment() {
 		// Required empty public constructor
 	}
 
-	IFileSelectListener file_listener;
-
 	@Override
 	public void onClick(View v) {
 		int id = v.getId();
 		if (id == R.id.btn_cancel) {
 			getActivity().getSupportFragmentManager().beginTransaction().remove(this).commit();
+			getActivity().getSupportFragmentManager().executePendingTransactions();
 		} else if (id == R.id.btn_nav_up) {
 			adapter.setFilesInParent();
 		} else if (id == R.id.btn_create) {
+
 		} else if (id == R.id.btn_done) {
+			getActivity().getSupportFragmentManager().beginTransaction().remove(this).commit();
+			getActivity().getSupportFragmentManager().executePendingTransactions();
 			if (file_listener != null)
 				file_listener.onFileSelected(adapter.getCurrentFile());
 		} else if (id == R.id.btn_box) {

@@ -54,10 +54,11 @@
             android:layout_height="wrap_content"
             android:visibility="gone" />
 
-        <ListView
+        <GridView
             android:id="@+id/object_listview"
             android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+            android:layout_height="match_parent"
+            android:numColumns="2" />
     </LinearLayout>
 
     <LinearLayout

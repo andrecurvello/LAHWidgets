@@ -57,9 +57,11 @@ public class FileArrayAdapter extends ArrayAdapter<File> {
 	 */
 	public FileArrayAdapter(Context context, int textViewResourceId, File init_file) {
 		super(context, textViewResourceId);
-		ic_directory = context.getResources().getDrawable(R.drawable.ic_directory);
+		// ic_directory = context.getResources().getDrawable(R.drawable.ic_directory);
+		// ic_file = context.getResources().getDrawable(R.drawable.ic_file);
+		ic_directory = context.getResources().getDrawable(R.drawable.ic_directory_inv);
+		ic_file = context.getResources().getDrawable(R.drawable.ic_file_inv);
 		ic_directory.setBounds(0, 0, ic_directory.getIntrinsicWidth(), ic_directory.getIntrinsicHeight());
-		ic_file = context.getResources().getDrawable(R.drawable.ic_file);
 		ic_file.setBounds(0, 0, ic_file.getIntrinsicWidth(), ic_file.getIntrinsicHeight());
 		file_comparator = new FileComparator(); // default file comparator
 		setCurrentFile(init_file);
@@ -98,6 +100,7 @@ public class FileArrayAdapter extends ArrayAdapter<File> {
 		}
 		File f = getItem(position); // get file at indicated position
 		f_view.setGravity(Gravity.CENTER_VERTICAL);
+		f_view.setMaxLines(1);
 		f_view.setCompoundDrawables(f.isDirectory() ? ic_directory : ic_file, null, null, null);
 		f_view.setText(f.getName());
 		f_view.setTextAppearance(getContext(), android.R.style.TextAppearance_Medium_Inverse);

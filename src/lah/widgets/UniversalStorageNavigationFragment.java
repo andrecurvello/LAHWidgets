@@ -10,8 +10,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
+import android.widget.GridView;
 import android.widget.ImageButton;
-import android.widget.ListView;
 
 public class UniversalStorageNavigationFragment extends Fragment implements View.OnClickListener {
 
@@ -27,7 +27,7 @@ public class UniversalStorageNavigationFragment extends Fragment implements View
 
 	ImageButton button_create;
 
-	ListView object_listview;
+	GridView object_listview;
 
 	public UniversalStorageNavigationFragment() {
 		// Required empty public constructor
@@ -69,7 +69,7 @@ public class UniversalStorageNavigationFragment extends Fragment implements View
 	public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
 		// Inflate the layout for this fragment
 		View view = inflater.inflate(R.layout.fragment_universal_storage_navigation, container, false);
-		object_listview = (ListView) view.findViewById(R.id.object_listview);
+		object_listview = (GridView) view.findViewById(R.id.object_listview);
 		adapter = new FileArrayAdapter(getActivity(), 0, Environment.getExternalStorageDirectory());
 		object_listview.setAdapter(adapter);
 		object_listview.setOnItemClickListener(new OnItemClickListener() {
@@ -80,7 +80,7 @@ public class UniversalStorageNavigationFragment extends Fragment implements View
 			}
 		});
 		button_create = (ImageButton) view.findViewById(R.id.btn_create);
-		button_create.setVisibility(View.GONE);
+		// button_create.setVisibility(View.GONE);
 		for (int id : button_ids) {
 			View v = view.findViewById(id);
 			v.setOnClickListener(this);

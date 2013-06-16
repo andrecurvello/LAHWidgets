@@ -97,13 +97,14 @@ public class FileArrayAdapter extends ArrayAdapter<File> {
 		} else {
 			Context context = parent.getContext();
 			f_view = new TextView(context);
+			f_view.setGravity(Gravity.CENTER_VERTICAL);
+			f_view.setMaxLines(1);
+			f_view.setTextAppearance(getContext(), android.R.style.TextAppearance_Medium_Inverse);
+			f_view.setPadding(0, 5, 0, 5);
 		}
 		File f = getItem(position); // get file at indicated position
-		f_view.setGravity(Gravity.CENTER_VERTICAL);
-		f_view.setMaxLines(1);
 		f_view.setCompoundDrawables(f.isDirectory() ? ic_directory : ic_file, null, null, null);
 		f_view.setText(f.getName());
-		f_view.setTextAppearance(getContext(), android.R.style.TextAppearance_Medium_Inverse);
 		return f_view;
 	}
 
